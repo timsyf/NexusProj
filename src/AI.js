@@ -1,11 +1,11 @@
 import React from 'react';
 
-function AI() {
+const AI = () => {
   return (
-    <div className="AI">
-      <h1>AI</h1>
+    <div>
+      <h2>Welcome to the AI1</h2>
     </div>
   );
-}
+};
 
 export default AI;

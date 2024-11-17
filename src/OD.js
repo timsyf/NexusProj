@@ -1,11 +1,11 @@
 import React from 'react';
 
-function OD() {
+const OD = () => {
   return (
-    <div className="OD">
-      <h1>OD</h1>
+    <div>
+      <h2>Welcome to the OD</h2>
     </div>
   );
-}
+};
 
 export default OD;
