@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
-import { Container, Row, Col, Form, Button, Spinner, Card } from 'react-bootstrap';
+import React, { useState } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Form,
+  Button,
+  Spinner,
+  Card,
+} from "react-bootstrap";
 
 function AI() {
-  const [userInput, setUserInput] = useState('');
-  const [response, setResponse] = useState('');
+  const [userInput, setUserInput] = useState("");
+  const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
   const predictionKey = process.env.REACT_APP_API_KEY;
 
@@ -13,30 +21,33 @@ function AI() {
     const prompt = "You are a helpful assistant.";
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4',
-          messages: [
-            { role: 'system', content: prompt },
-            { role: 'user', content: userInput }
-          ]
-        })
-      });
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4",
+            messages: [
+              { role: "system", content: prompt },
+              { role: "user", content: userInput },
+            ],
+          }),
+        }
+      );
 
       const data = await response.json();
       if (data.choices && data.choices[0]) {
         setResponse(data.choices[0].message.content);
       } else {
-        setResponse('No response received.');
+        setResponse("No response received.");
       }
     } catch (error) {
-      console.error('Error:', error);
-      setResponse('An error occurred while fetching the response.');
+      console.error("Error:", error);
+      setResponse("An error occurred while fetching the response.");
     } finally {
       setLoading(false);
     }
@@ -76,11 +87,11 @@ function AI() {
                         size="sm"
                         role="status"
                         aria-hidden="true"
-                      />{' '}
+                      />{" "}
                       Loading...
                     </>
                   ) : (
-                    'Submit'
+                    "Submit"
                   )}
                 </Button>
               </Form>
@@ -91,12 +102,7 @@ function AI() {
               <h3>Response</h3>
             </Card.Header>
             <Card.Body>
-              <Form.Control
-                as="textarea"
-                rows={6}
-                readOnly
-                value={response}
-              />
+              <Form.Control as="textarea" rows={6} readOnly value={response} />
             </Card.Body>
           </Card>
         </Col>

@@ -32,6 +32,22 @@ function OD() {
         .then((stream) => {
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
+
+            // Set canvas dimensions when video metadata is loaded
+            videoRef.current.onloadedmetadata = () => {
+              const videoWidth = videoRef.current.videoWidth;
+              const videoHeight = videoRef.current.videoHeight;
+
+              if (canvasRef.current) {
+                canvasRef.current.width = videoWidth;
+                canvasRef.current.height = videoHeight;
+              }
+
+              if (overlayCanvasRef.current) {
+                overlayCanvasRef.current.width = videoWidth;
+                overlayCanvasRef.current.height = videoHeight;
+              }
+            };
           }
         })
         .catch((err) => {
@@ -59,13 +75,23 @@ function OD() {
           }
           const blob = new Blob([byteArray], { type: "image/png" });
 
-          const results = await predictor.detectImage(projectId, publishIterationName, blob);
-
-          const filteredResults = results.predictions.filter(
-            (predictedResult) => predictedResult.probability * 100 >= minProbability
+          const results = await predictor.detectImage(
+            projectId,
+            publishIterationName,
+            blob
           );
 
-          overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+          const filteredResults = results.predictions.filter(
+            (predictedResult) =>
+              predictedResult.probability * 100 >= minProbability
+          );
+
+          overlayContext.clearRect(
+            0,
+            0,
+            overlayCanvas.width,
+            overlayCanvas.height
+          );
 
           filteredResults.forEach((predictedResult) => {
             const { boundingBox, probability, tagName } = predictedResult;
@@ -92,7 +118,9 @@ function OD() {
           const resultText = filteredResults
             .map(
               (predictedResult) =>
-                `${predictedResult.tagName}: ${(predictedResult.probability * 100.0).toFixed(2)}%`
+                `${predictedResult.tagName}: ${(
+                  predictedResult.probability * 100.0
+                ).toFixed(2)}%`
             )
             .join("\n");
 
@@ -128,19 +156,15 @@ function OD() {
                   ref={videoRef}
                   autoPlay
                   playsInline
-                  width="100%"
-                  height="auto"
                   className="border rounded mb-4"
                 />
                 <canvas
                   ref={overlayCanvasRef}
                   className="position-absolute top-0 start-0"
                   style={{ pointerEvents: "none" }}
-                  width="640"
-                  height="480"
                 />
               </div>
-              <canvas ref={canvasRef} width="640" height="480" style={{ display: "none" }} />
+              <canvas ref={canvasRef} style={{ display: "none" }} />
               <h2>Predictions (Above {minProbability}% probability):</h2>
               <Form.Control
                 as="textarea"

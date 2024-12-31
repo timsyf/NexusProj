@@ -1,34 +1,40 @@
-import React, { useState, useContext } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import { AuthContext } from './App';
-import { Container, Form, Button, Alert, Card } from 'react-bootstrap';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { useState, useContext } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "./App";
+import { Container, Form, Button, Alert, Card } from "react-bootstrap";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 const Login = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
   const { setAuth } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleLogin = async () => {
     try {
-      const response = await axios.post('http://localhost:5000/login', { username, password });
+      const response = await axios.post("http://localhost:5000/login", {
+        username,
+        password,
+      });
       setAuth({ isAuthenticated: true, token: response.data.token, username });
-      navigate('/');
+      navigate("/");
     } catch (error) {
-      setMessage(error.response?.data?.message || 'An error occurred');
+      setMessage(error.response?.data?.message || "An error occurred");
     }
   };
 
   const goToRegister = () => {
-    navigate('/register');
+    navigate("/register");
   };
 
   return (
     <Container className="d-flex justify-content-center align-items-center vh-100">
-      <Card className="shadow-lg p-4" style={{ maxWidth: '400px', width: '100%' }}>
+      <Card
+        className="shadow-lg p-4"
+        style={{ maxWidth: "400px", width: "100%" }}
+      >
         <h2 className="text-center mb-4">Login</h2>
         <Form>
           <Form.Group controlId="formUsername">

@@ -43,30 +43,36 @@ function Home() {
       const context = canvas.getContext("2d");
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const imageData = canvas.toDataURL("image/jpeg").split(",")[1];
-      
+
       const predictionKey = process.env.REACT_APP_API_KEY;
       const apiKey = predictionKey;
 
       try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: prompt || "What is in this image?" },
-                  { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageData}` } },
-                ],
-              },
-            ],
-          }),
-        });
+        const response = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: prompt || "What is in this image?" },
+                    {
+                      type: "image_url",
+                      image_url: { url: `data:image/jpeg;base64,${imageData}` },
+                    },
+                  ],
+                },
+              ],
+            }),
+          }
+        );
 
         const data = await response.json();
         setResponseText(data.choices[0].message.content);

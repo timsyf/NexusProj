@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
-import { Container, Row, Col, Button, Form, Card, Spinner, Alert } from 'react-bootstrap';
+import React, { useState } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Form,
+  Card,
+  Spinner,
+  Alert,
+} from "react-bootstrap";
 
 function AI() {
-  const [userInput, setUserInput] = useState('');
+  const [userInput, setUserInput] = useState("");
   const [imageResponse, setImageResponse] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     if (!userInput.trim()) {
@@ -14,24 +23,27 @@ function AI() {
     }
 
     setLoading(true);
-    setError('');
+    setError("");
     const predictionKey = process.env.REACT_APP_API_KEY;
     const apiKey = predictionKey;
 
     try {
-      const response = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'dall-e-3',
-          prompt: userInput.trim(),
-          n: 1,
-          size: '1024x1024'
-        })
-      });
+      const response = await fetch(
+        "https://api.openai.com/v1/images/generations",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "dall-e-3",
+            prompt: userInput.trim(),
+            n: 1,
+            size: "1024x1024",
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -47,7 +59,7 @@ function AI() {
         setError("No image generated. Please try again.");
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -70,6 +82,7 @@ function AI() {
                     onChange={(e) => setUserInput(e.target.value)}
                     rows={5}
                     isInvalid={error}
+                    className="mb-3"
                   />
                   <Form.Control.Feedback type="invalid">
                     {error}
@@ -79,9 +92,13 @@ function AI() {
                   variant="primary"
                   onClick={handleSubmit}
                   disabled={loading}
-                  block
+                  className="w-100"
                 >
-                  {loading ? <Spinner animation="border" size="sm" /> : 'Generate Image'}
+                  {loading ? (
+                    <Spinner animation="border" size="sm" />
+                  ) : (
+                    "Generate Image"
+                  )}
                 </Button>
               </Form>
               {imageResponse && (
@@ -92,7 +109,7 @@ function AI() {
                       src={imageResponse}
                       alt="Generated"
                       className="img-fluid rounded shadow-sm"
-                      style={{ maxWidth: '100%', maxHeight: 'auto' }}
+                      style={{ maxWidth: "100%", maxHeight: "auto" }}
                     />
                   </div>
                 </div>
