@@ -13,6 +13,9 @@ import AI2 from "./AI2";
 import AI3 from "./AI3";
 import AI4 from "./AI4";
 import AI5 from "./AI5";
+import AI6 from "./AI6";
+import AI7 from "./AI7";
+import AI8 from "./AI8";
 import OD from "./OD";
 import Login from "./login";
 import NotFound from "./NotFound";
@@ -70,7 +73,16 @@ function App() {
                         Translator
                       </NavDropdown.Item>
                       <NavDropdown.Item as={Link} to="/AI5">
-                        Podcast Generator
+                        Speech to Text
+                      </NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/AI6">
+                        Sign Language Decipher
+                      </NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/AI7">
+                        FaceAPI Creating Person
+                      </NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/AI8">
+                        FaceAPI Training Faces
                       </NavDropdown.Item>
                       <NavDropdown.Item as={Link} to="/OD">
                         Object Detection
@@ -151,6 +163,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AI5 />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/AI6"
+              element={
+                <ProtectedRoute>
+                  <AI6 />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/AI7"
+              element={
+                <ProtectedRoute>
+                  <AI7 />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/AI8"
+              element={
+                <ProtectedRoute>
+                  <AI8 />
                 </ProtectedRoute>
               }
             />
