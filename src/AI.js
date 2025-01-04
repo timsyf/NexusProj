@@ -58,10 +58,8 @@ function AI() {
       <Row className="justify-content-center">
         <Col md={8}>
           <Card>
-            <Card.Header className="bg-primary text-white text-center">
-              <h2>ChatGPT Prototype</h2>
-            </Card.Header>
             <Card.Body>
+            <h1 className="text-center mb-4">ChatGPT Prototype</h1>
               <Form>
                 <Form.Group className="mb-3">
                   <Form.Label>Enter your input</Form.Label>
