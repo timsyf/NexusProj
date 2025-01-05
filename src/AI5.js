@@ -108,6 +108,40 @@ function SpeechRecorder() {
     exportAsPDF(summary);
   };
 
+  const correctGrammarAndSpelling = async (text) => {
+    const apiKey = process.env.REACT_APP_API_KEY;
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            {
+              role: "system",
+              content: "You are an assistant that corrects grammar and spelling mistakes in text.",
+            },
+            { role: "user", content: text },
+          ],
+        }),
+      });
+
+      const data = await response.json();
+      if (data.choices && data.choices[0]) {
+        const correctedText = data.choices[0].message.content;
+        setTranscript(correctedText); // Update the transcript with corrected text
+      } else {
+        console.error("Failed to correct grammar and spelling.");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  };
+
   return (
     <Container style={{ paddingTop: "20px" }}>
       <Card>
@@ -146,6 +180,11 @@ function SpeechRecorder() {
                 <Col xs="auto">
                   <Button onClick={handleSummarizeAndExport} variant="primary" size="lg">
                     Summarized PDF
+                  </Button>
+                </Col>
+                <Col xs="auto">
+                  <Button onClick={() => correctGrammarAndSpelling(transcript)} variant="primary" size="lg">
+                    Correct Grammar & Spelling
                   </Button>
                 </Col>
               </Row>
