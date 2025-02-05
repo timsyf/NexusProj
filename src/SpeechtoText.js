@@ -94,8 +94,8 @@ function SpeechRecorder() {
         setSummarizedText(summary);
         return summary;
       } else {
-        console.error("Failed to summarize text.");
-        return "Failed to summarize the text.";
+        console.error("failed to summarize text.");
+        return "failed to summarize the text.";
       }
     } catch (error) {
       console.error("Error:", error);

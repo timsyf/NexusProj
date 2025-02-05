@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button, Container, Row, Col, Form, Card } from "react-bootstrap";
 
-function AI4() {
+function Translator() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [translatedText, setTranslatedText] = useState("");
@@ -312,4 +312,4 @@ function AI4() {
   );
 }
 
-export default AI4;
+export default Translator;
