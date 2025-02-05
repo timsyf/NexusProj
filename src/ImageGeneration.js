@@ -47,7 +47,7 @@ function AI() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        setError(errorData.error?.message || "Failed to generate image");
+        setError(errorData.error?.message || "failed to generate image");
         return;
       }
 

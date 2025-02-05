@@ -8,14 +8,12 @@ import {
 } from "react-router-dom";
 import "./App.css";
 import Dashboard from "./Dashboard";
-import AI from "./AI";
-import AI2 from "./AI2";
-import AI3 from "./AI3";
-import AI4 from "./AI4";
-import AI5 from "./AI5";
-import AI6 from "./AI6";
-import AI7 from "./AI7";
-import AI8 from "./AI8";
+import ChatGPT from "./ChatGPT";
+import ImageGeneration from "./ImageGeneration";
+import ImageAnalysis from "./ImageAnalysis";
+import Translator from "./Translator";
+import SpeechtoText from "./SpeechtoText";
+import SignLanguage from "./SignLanguage";
 import OD from "./OD";
 import Login from "./login";
 import NotFound from "./NotFound";
@@ -34,7 +32,7 @@ export const AuthContext = createContext();
 
 function App() {
   const [auth, setAuth] = useState({
-    isAuthenticated: false,
+    isAuthenticated: true,
     token: null,
     username: "",
   });
@@ -59,33 +57,30 @@ function App() {
                     <Nav.Link as={Link} to="/dashboard">
                       Dashboard
                     </Nav.Link>
-                    <NavDropdown title="Services" id="services-nav-dropdown">
-                      <NavDropdown.Item as={Link} to="/AI">
-                        ChatGPT
-                      </NavDropdown.Item>
-                      <NavDropdown.Item as={Link} to="/AI2">
+                    <NavDropdown title="OpenAI" id="services-nav-dropdown">
+                      <NavDropdown.Item as={Link} to="/ImageGeneration">
                         Image Generator
                       </NavDropdown.Item>
-                      <NavDropdown.Item as={Link} to="/AI3">
-                        Image Analysis
-                      </NavDropdown.Item>
-                      <NavDropdown.Item as={Link} to="/AI4">
+                      <NavDropdown.Item as={Link} to="/Translator">
                         Translator
                       </NavDropdown.Item>
-                      <NavDropdown.Item as={Link} to="/AI5">
+                      <NavDropdown.Item as={Link} to="/SpeechtoText">
                         Speech to Text
                       </NavDropdown.Item>
-                      <NavDropdown.Item as={Link} to="/AI6">
-                        Sign Language Decipher
-                      </NavDropdown.Item>
-                      <NavDropdown.Item as={Link} to="/AI7">
-                        FaceAPI Creating Person
-                      </NavDropdown.Item>
-                      <NavDropdown.Item as={Link} to="/AI8">
-                        FaceAPI Training Faces
-                      </NavDropdown.Item>
+                    </NavDropdown>
+
+                    <NavDropdown title="Object Detections" id="others-nav-dropdown">
                       <NavDropdown.Item as={Link} to="/OD">
                         Object Detection
+                      </NavDropdown.Item>
+                    </NavDropdown>
+
+                    <NavDropdown title="Testing" id="others-nav-dropdown">
+                      <NavDropdown.Item as={Link} to="/ChatGPT">
+                        ChatGPT
+                      </NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/SignLanguage">
+                        Sign Language Decipher
                       </NavDropdown.Item>
                     </NavDropdown>
                   </Nav>
@@ -127,66 +122,50 @@ function App() {
               }
             />
             <Route
-              path="/AI"
+              path="/ChatGPT"
               element={
                 <ProtectedRoute>
-                  <AI />
+                  <ChatGPT />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/AI2"
+              path="/ImageGeneration"
               element={
                 <ProtectedRoute>
-                  <AI2 />
+                  <ImageGeneration />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/AI3"
+              path="/ImageAnalysis"
               element={
                 <ProtectedRoute>
-                  <AI3 />
+                  <ImageAnalysis />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/AI4"
+              path="/Translator"
               element={
                 <ProtectedRoute>
-                  <AI4 />
+                  <Translator />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/AI5"
+              path="/SpeechtoText"
               element={
                 <ProtectedRoute>
-                  <AI5 />
+                  <SpeechtoText />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/AI6"
+              path="/SignLanguage"
               element={
                 <ProtectedRoute>
-                  <AI6 />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AI7"
-              element={
-                <ProtectedRoute>
-                  <AI7 />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AI8"
-              element={
-                <ProtectedRoute>
-                  <AI8 />
+                  <SignLanguage />
                 </ProtectedRoute>
               }
             />
