@@ -18,6 +18,64 @@ function AI() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const handleSubmit = async () => {
+    if (!userInput.trim()) {
+      setError("Please enter a valid prompt.");
+      return;
+    }
+
+    const apiKey = process.env.REACT_APP_API_KEY;
+    if (!apiKey) {
+      setError("Missing API key. Please configure REACT_APP_API_KEY.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setImageResponses([]);
+
+    try {
+      const newImageUrls = [];
+
+      for (let i = 0; i < imageCount; i++) {
+        const response = await fetch(
+          "https://api.openai.com/v1/images/generations",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: "dall-e-3",
+              prompt: userInput.trim(),
+              n: 1,
+              size: imageSize,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || "Failed to generate image.");
+        }
+
+        const data = await response.json();
+        const imageUrl = data?.data?.[0]?.url;
+        if (imageUrl) {
+          newImageUrls.push(imageUrl);
+        }
+      }
+
+      setImageResponses(newImageUrls);
+    } catch (err) {
+      console.error("Error:", err);
+      setError(err.message || "An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEnhancePrompt = async () => {
     if (!userInput.trim()) {
       setError("Please enter a raw idea to enhance.");
@@ -50,7 +108,7 @@ function AI() {
             },
             {
               role: "user",
-              content: `Enhance this prompt for an image generation AI: "${userInput}"`,
+              content: `Enhance this prompt for an image generation AI: \"${userInput}\"`,
             },
           ],
         }),
@@ -72,61 +130,6 @@ function AI() {
     } catch (err) {
       console.error(err);
       setError(err.message || "Unexpected error during prompt enhancement.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!userInput.trim()) {
-      setError("Please enter a valid prompt.");
-      return;
-    }
-
-    const apiKey = process.env.REACT_APP_API_KEY;
-    if (!apiKey) {
-      setError("Missing API key. Please configure REACT_APP_API_KEY.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    setImageResponses([]);
-
-    try {
-      const newImageUrls = [];
-
-      for (let i = 0; i < imageCount; i++) {
-        const response = await fetch("https://api.openai.com/v1/images/generations", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "dall-e-3",
-            prompt: userInput.trim(),
-            n: 1,
-            size: imageSize,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || "Failed to generate image.");
-        }
-
-        const data = await response.json();
-        const imageUrl = data?.data?.[0]?.url;
-        if (imageUrl) {
-          newImageUrls.push(imageUrl);
-        }
-      }
-
-      setImageResponses(newImageUrls);
-    } catch (err) {
-      console.error("Error:", err);
-      setError(err.message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
@@ -168,7 +171,7 @@ function AI() {
                       <Spinner animation="border" size="sm" /> Enhancing Prompt...
                     </>
                   ) : (
-                    "✨ Enhance with ChatGPT"
+                    "Enhance with ChatGPT"
                   )}
                 </Button>
 
