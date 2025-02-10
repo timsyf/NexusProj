@@ -1,315 +1,287 @@
-import React, { useState, useEffect } from "react";
-import { Button, Container, Row, Col, Form, Card } from "react-bootstrap";
+// TranslatorWithOpenAI.jsx
+import React, { useState, useRef, useEffect } from "react";
+import { Button, Container, Row, Col, Form, Card, Spinner } from "react-bootstrap";
 
-function Translator() {
-  const [isListening, setIsListening] = useState(false);
+function TranslatorWithOpenAI() {
+  const [audioFile, setAudioFile] = useState(null);
   const [transcript, setTranscript] = useState("");
   const [translatedText, setTranslatedText] = useState("");
+  const [isReadingAloud, setIsReadingAloud] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("zh");
   const [fromLanguage, setFromLanguage] = useState("en");
-  const [recognition, setRecognition] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [autoReadAloud, setAutoReadAloud] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState("nova");
+  const [showUpload, setShowUpload] = useState(false);
+
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
+  const transcribingRef = useRef(false);
+  const audioRef = useRef(null);
 
   const languages = [
     { code: "en", name: "English" },
-    { code: "af", name: "Afrikaans" },
-    { code: "ar", name: "Arabic" },
-    { code: "hy", name: "Armenian" },
-    { code: "az", name: "Azerbaijani" },
-    { code: "be", name: "Belarusian" },
-    { code: "bs", name: "Bosnian" },
-    { code: "bg", name: "Bulgarian" },
-    { code: "ca", name: "Catalan" },
     { code: "zh", name: "Chinese" },
-    { code: "hr", name: "Croatian" },
-    { code: "cs", name: "Czech" },
-    { code: "da", name: "Danish" },
-    { code: "nl", name: "Dutch" },
-    { code: "et", name: "Estonian" },
-    { code: "fi", name: "Finnish" },
-    { code: "fr", name: "French" },
-    { code: "gl", name: "Galician" },
-    { code: "de", name: "German" },
-    { code: "el", name: "Greek" },
-    { code: "he", name: "Hebrew" },
-    { code: "hi", name: "Hindi" },
-    { code: "hu", name: "Hungarian" },
-    { code: "is", name: "Icelandic" },
-    { code: "id", name: "Indonesian" },
-    { code: "it", name: "Italian" },
     { code: "ja", name: "Japanese" },
-    { code: "kn", name: "Kannada" },
-    { code: "kk", name: "Kazakh" },
-    { code: "ko", name: "Korean" },
-    { code: "lv", name: "Latvian" },
-    { code: "lt", name: "Lithuanian" },
-    { code: "mk", name: "Macedonian" },
-    { code: "ms", name: "Malay" },
-    { code: "mr", name: "Marathi" },
-    { code: "mi", name: "Maori" },
-    { code: "ne", name: "Nepali" },
-    { code: "no", name: "Norwegian" },
-    { code: "fa", name: "Persian" },
-    { code: "pl", name: "Polish" },
-    { code: "pt", name: "Portuguese" },
-    { code: "ro", name: "Romanian" },
-    { code: "ru", name: "Russian" },
-    { code: "sr", name: "Serbian" },
-    { code: "sk", name: "Slovak" },
-    { code: "sl", name: "Slovenian" },
     { code: "es", name: "Spanish" },
-    { code: "sw", name: "Swahili" },
-    { code: "sv", name: "Swedish" },
-    { code: "tl", name: "Tagalog" },
-    { code: "ta", name: "Tamil" },
-    { code: "th", name: "Thai" },
-    { code: "tr", name: "Turkish" },
-    { code: "uk", name: "Ukrainian" },
-    { code: "ur", name: "Urdu" },
-    { code: "vi", name: "Vietnamese" },
-    { code: "cy", name: "Welsh" },
+    { code: "fr", name: "French" },
+    { code: "de", name: "German" },
+    { code: "ko", name: "Korean" },
+    { code: "ru", name: "Russian" },
   ];
 
-  useEffect(() => {
-    if (!("webkitSpeechRecognition" in window)) {
-      alert("Your browser does not support speech recognition.");
+  const handleAudioUpload = (e) => {
+    const file = e.target.files[0];
+    setAudioFile(file);
+    handleTranscribeAndTranslate(file);
+  };
+
+  const handleStartRecording = async () => {
+    setTranscript("");
+    setTranslatedText("");
+    recordedChunksRef.current = [];
+    setAudioFile(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordedChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        recordedChunksRef.current = [...recordedChunksRef.current];
+        const blob = new Blob(recordedChunksRef.current, { type: "audio/webm" });
+        const file = new File([blob], `recording_${Date.now()}.webm`, { type: "audio/webm" });
+        setAudioFile(file);
+        handleTranscribeAndTranslate(file);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      alert("Microphone access denied or not supported.");
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleTranscribeAndTranslate = async (file = audioFile) => {
+    if (transcribingRef.current) return;
+    if (!file || !(file instanceof File)) {
+      alert("Please upload or record an audio file first.");
+      return;
+    }
+    transcribingRef.current = true;
+    setLoading(true);
+    setTranscript("");
+    setTranslatedText("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("model", "whisper-1");
+      formData.append("language", fromLanguage);
+
+      const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`,
+        },
+        body: formData,
+      });
+
+      const whisperData = await whisperRes.json();
+      const text = whisperData.text;
+      setTranscript(text);
+
+      const translateRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            {
+              role: "system",
+              content: `Translate this from ${fromLanguage} to ${selectedLanguage} only.`,
+            },
+            { role: "user", content: text },
+          ],
+        }),
+      });
+
+      const translateData = await translateRes.json();
+      const translated = translateData.choices[0].message.content.trim();
+      setTranslatedText(translated);
+
+      if (autoReadAloud) {
+        await handleReadAloud(translated);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to transcribe or translate.");
+    } finally {
+      setLoading(false);
+      transcribingRef.current = false;
+      setAudioFile(null);
+    }
+  };
+
+  const handleReadAloud = async (textToRead = translatedText) => {
+    if (!textToRead) return;
+
+    if (isReadingAloud && audioRef.current) {
+      audioRef.current.pause();
+      setIsReadingAloud(false);
       return;
     }
 
-    const SpeechRecognition = window.webkitSpeechRecognition;
-    const recognitionInstance = new SpeechRecognition();
-    recognitionInstance.continuous = true;
-    recognitionInstance.interimResults = true;
-    recognitionInstance.lang = fromLanguage;
-
-    recognitionInstance.onresult = (event) => {
-      let interimTranscript = "";
-      let finalTranscript = "";
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          finalTranscript += result[0].transcript;
-        } else {
-          interimTranscript += result[0].transcript;
-        }
-      }
-
-      setTranscript(finalTranscript || interimTranscript);
-    };
-
-    recognitionInstance.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-    };
-
-    setRecognition(recognitionInstance);
-  }, [fromLanguage]);
-
-  const translateText = async (text, targetLanguage) => {
-    const predictionKey = process.env.REACT_APP_API_KEY;
-    const apiKey = predictionKey;
-
     try {
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4",
-            messages: [
-              {
-                role: "system",
-                content: `You are a helpful assistant that translates text from ${fromLanguage} to ${targetLanguage}. Do not return anything else other than the translated text.`,
-              },
-              { role: "user", content: text },
-            ],
-          }),
-        }
-      );
+      const response = await fetch("https://api.openai.com/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "tts-1",
+          voice: selectedVoice === "auto" ? "nova" : selectedVoice,
+          input: textToRead,
+          response_format: "mp3",
+        }),
+      });
 
-      const data = await response.json();
-      if (data.choices && data.choices[0]) {
-        const translated = data.choices[0].message.content;
-        setTranslatedText(translated);
+      if (!response.ok) throw new Error("TTS generation failed");
 
-        if (autoReadAloud) {
-          const utterance = new SpeechSynthesisUtterance(translated);
-          utterance.lang = targetLanguage;
-          window.speechSynthesis.speak(utterance);
-        }
-      } else {
-        setTranslatedText("Translation failed.");
-      }
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      setIsReadingAloud(true);
+
+      audio.onended = () => setIsReadingAloud(false);
+      audio.play();
     } catch (error) {
-      console.error("Error:", error);
-      setTranslatedText("An error occurred during translation.");
+      console.error("Error during TTS playback:", error);
+      alert("Text-to-speech failed. Please try again.");
     }
-  };
-
-  const handleListenToggle = () => {
-    if (isListening) {
-      recognition.stop();
-      translateText(transcript, selectedLanguage);
-    } else {
-      setTranscript("");
-      setTranslatedText("");
-
-      recognition.start();
-    }
-    setIsListening(!isListening);
-  };
-
-  const handleReadAloud = () => {
-    if (translatedText) {
-      const utterance = new SpeechSynthesisUtterance(translatedText);
-      utterance.lang = selectedLanguage;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  const handleLanguageChange = (e) => {
-    const newLanguage = e.target.value;
-    setSelectedLanguage(newLanguage);
-  };
-
-  const handleFromLanguageChange = (e) => {
-    const newLanguage = e.target.value;
-    setFromLanguage(newLanguage);
-  };
-
-  const handleSwapLanguages = () => {
-    setFromLanguage(selectedLanguage);
-    setSelectedLanguage(fromLanguage);
   };
 
   return (
-    <Container className="AI" style={{ paddingTop: "20px" }}>
+    <Container className="pt-4">
       <Card>
         <Card.Body>
-          <Card.Title className="text-center">
-            Speech-to-Text and Translation
-          </Card.Title>
+          <Card.Title className="text-center">Translator</Card.Title>
 
-          <Row className="mb-3 justify-content-center">
-            <Col xs="auto">
-              <Button
-                onClick={handleListenToggle}
-                variant={isListening ? "danger" : "success"}
-                size="lg"
-              >
-                {isListening ? "Stop Listening" : "Start Listening"}
-              </Button>
+          <Row className="mb-3">
+            <Col>
+              {showUpload && (
+                <Form.Group>
+                  <Form.Label>Upload Audio File (e.g., MP3/WAV)</Form.Label>
+                  <Form.Control type="file" accept="audio/*" onChange={handleAudioUpload} />
+                </Form.Group>
+              )}
+              <div className="mt-2">
+                <Button onClick={() => setShowUpload(!showUpload)} variant="info" className="me-2">
+                  {showUpload ? "Cancel Upload" : "Upload Audio File"}
+                </Button>
+                {!showUpload && (
+                  <Button onClick={isRecording ? handleStopRecording : handleStartRecording} variant={isRecording ? "danger" : "secondary"}>
+                    {isRecording ? "Stop Recording" : "Record from Microphone"}
+                  </Button>
+                )}
+              </div>
             </Col>
           </Row>
 
           <Row className="mb-3">
             <Col>
               <Form.Group>
-                <Form.Label>Choose Language for Translation</Form.Label>
-                <Form.Control
-                  as="select"
-                  value={fromLanguage}
-                  onChange={handleFromLanguageChange}
-                >
+                <Form.Label>From Language</Form.Label>
+                <Form.Control as="select" value={fromLanguage} onChange={(e) => setFromLanguage(e.target.value)}>
                   {languages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.name}
-                    </option>
+                    <option key={lang.code} value={lang.code}>{lang.name}</option>
                   ))}
                 </Form.Control>
               </Form.Group>
             </Col>
             <Col>
               <Form.Group>
-                <Form.Label>Choose Language to Listen/Transcribe</Form.Label>
-                <Form.Control
-                  as="select"
-                  value={selectedLanguage}
-                  onChange={handleLanguageChange}
-                >
+                <Form.Label>To Language</Form.Label>
+                <Form.Control as="select" value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)}>
                   {languages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.name}
-                    </option>
+                    <option key={lang.code} value={lang.code}>{lang.name}</option>
                   ))}
                 </Form.Control>
               </Form.Group>
             </Col>
           </Row>
 
-          <Row className="mb-3 justify-content-center">
-            <Col xs="auto">
-              <Button
-                onClick={handleSwapLanguages}
-                variant="secondary"
-                size="lg"
-              >
-                Swap Languages
-              </Button>
-            </Col>
-          </Row>
+          
 
           <Row className="mb-3">
             <Col>
-              <h5>Transcribed Text</h5>
-              <Form.Control
-                as="textarea"
-                rows="4"
-                value={transcript}
-                readOnly
-              />
+              <h5>Transcript</h5>
+              <Form.Control as="textarea" rows={3} value={transcript} readOnly />
             </Col>
           </Row>
 
           <Row className="mb-3">
             <Col>
               <h5>Translated Text</h5>
-              <Form.Control
-                as="textarea"
-                rows="4"
-                value={translatedText}
-                readOnly
-              />
+              <Form.Control as="textarea" rows={3} value={translatedText} readOnly />
+            </Col>
+          </Row>
+
+          <Row className="mb-3">
+            <Col>
+              <Form.Group>
+                <Form.Label>Voice</Form.Label>
+                <Form.Control as="select" value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)}>
+                  {["nova", "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "sage", "shimmer"].map((voice) => (
+                    <option key={voice} value={voice}>{voice}</option>
+                  ))}
+                </Form.Control>
+              </Form.Group>
             </Col>
           </Row>
 
           <Row className="mb-3">
             <Col>
               <Form.Check
-                type="radio"
+                type="switch"
+                id="auto-read-switch"
                 label="Auto Read Aloud"
                 checked={autoReadAloud}
-                onChange={() => setAutoReadAloud(true)}
-              />
-              <Form.Check
-                type="radio"
-                label="Manual Read Aloud"
-                checked={!autoReadAloud}
-                onChange={() => setAutoReadAloud(false)}
+                onChange={(e) => setAutoReadAloud(e.target.checked)}
               />
             </Col>
           </Row>
 
-          <Row className="justify-content-center">
-            <Col xs="auto">
-              <Button
-                onClick={handleReadAloud}
-                variant="primary"
-                size="lg"
-                disabled={autoReadAloud}
-              >
-                Read Aloud
-              </Button>
-            </Col>
-          </Row>
+          {!autoReadAloud && (
+            <Row>
+              <Col>
+                <Button onClick={() => handleReadAloud()} variant={isReadingAloud ? "warning" : "success"} disabled={!translatedText}>
+                  {isReadingAloud ? "Stop Reading" : "Read Aloud (OpenAI TTS)"}
+                </Button>
+              </Col>
+            </Row>
+          )}
         </Card.Body>
       </Card>
     </Container>
   );
 }
 
-export default Translator;
+export default TranslatorWithOpenAI;
