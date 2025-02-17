@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// Updated SpeechRecorder.jsx with OpenAI TTS integration
+import React, { useState, useEffect, useRef } from "react";
 import { Button, Container, Row, Col, Form, Card } from "react-bootstrap";
 import jsPDF from "jspdf";
 
@@ -8,6 +9,9 @@ function SpeechRecorder() {
   const [summarizedText, setSummarizedText] = useState("");
   const [recognition, setRecognition] = useState(null);
   const [showExportButtons, setShowExportButtons] = useState(false);
+  const [isReadingAloud, setIsReadingAloud] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState("nova");
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (!("webkitSpeechRecognition" in window)) {
@@ -39,7 +43,6 @@ function SpeechRecorder() {
   }, []);
 
   const handleStartRecording = () => {
-    setTranscript("");
     recognition.start();
     setIsRecording(true);
     setShowExportButtons(false);
@@ -81,7 +84,7 @@ function SpeechRecorder() {
           messages: [
             {
               role: "system",
-              content: "You are an assistant that summarizes long texts into concise summaries.",
+              content: "Summarize the following text in a single, concise paragraph. Only return the summary without any introductions or additional remarks.",
             },
             { role: "user", content: text },
           ],
@@ -103,11 +106,6 @@ function SpeechRecorder() {
     }
   };
 
-  const handleSummarizeAndExport = async () => {
-    const summary = await summarizeText(transcript);
-    exportAsPDF(summary);
-  };
-
   const correctGrammarAndSpelling = async (text) => {
     const apiKey = process.env.REACT_APP_API_KEY;
 
@@ -123,7 +121,7 @@ function SpeechRecorder() {
           messages: [
             {
               role: "system",
-              content: "You are an assistant that corrects grammar and spelling mistakes in text.",
+              content: "Correct the grammar and spelling in the following text. Only return the corrected version without explanations or extra commentary.",
             },
             { role: "user", content: text },
           ],
@@ -133,13 +131,61 @@ function SpeechRecorder() {
       const data = await response.json();
       if (data.choices && data.choices[0]) {
         const correctedText = data.choices[0].message.content;
-        setTranscript(correctedText); // Update the transcript with corrected text
+        setTranscript(correctedText);
       } else {
         console.error("Failed to correct grammar and spelling.");
       }
     } catch (error) {
       console.error("Error:", error);
     }
+  };
+
+  const handleReadAloud = async () => {
+    if (!transcript) return;
+
+    if (isReadingAloud && audioRef.current) {
+      audioRef.current.pause();
+      setIsReadingAloud(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "tts-1",
+          voice: selectedVoice,
+          input: transcript,
+          response_format: "mp3",
+        }),
+      });
+
+      if (!response.ok) throw new Error("TTS generation failed");
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      setIsReadingAloud(true);
+
+      audio.onended = () => setIsReadingAloud(false);
+      audio.play();
+    } catch (error) {
+      console.error("Error during TTS playback:", error);
+    }
+  };
+
+  const handleSummarizeAndExport = async () => {
+    if (transcript.trim().split(/\s+/).length <= 50) {
+      alert("Please provide more than 50 words to summarize.");
+      return;
+    }
+    const summary = await summarizeText(transcript);
+    exportAsPDF(summary);
   };
 
   return (
@@ -149,8 +195,8 @@ function SpeechRecorder() {
           <Card.Title className="text-center">Speech Recorder</Card.Title>
 
           <Row className="mb-3 justify-content-center">
-            <Col xs="auto">
-              {isRecording ? (
+          <Col xs="auto">
+            {isRecording ? (
                 <Button onClick={handleStopRecording} variant="danger" size="lg">
                   Stop Recording
                 </Button>
@@ -160,7 +206,12 @@ function SpeechRecorder() {
                 </Button>
               )}
             </Col>
-          </Row>
+          <Col xs="auto">
+            <Button onClick={() => setTranscript("")} variant="secondary" size="lg">
+              Clear Text
+            </Button>
+          </Col>
+        </Row>
 
           <Row className="mb-3">
             <Col>
@@ -171,6 +222,18 @@ function SpeechRecorder() {
 
           {showExportButtons && (
             <>
+              <Row className="mb-3">
+                <Col>
+                  <Form.Group>
+                    <Form.Label>Voice</Form.Label>
+                    <Form.Control as="select" value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)}>
+                      {["nova", "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "sage", "shimmer"].map((voice) => (
+                        <option key={voice} value={voice}>{voice}</option>
+                      ))}
+                    </Form.Control>
+                  </Form.Group>
+                </Col>
+              </Row>
               <Row className="justify-content-center">
                 <Col xs="auto">
                   <Button onClick={() => exportAsPDF(transcript)} variant="primary" size="lg">
@@ -185,6 +248,11 @@ function SpeechRecorder() {
                 <Col xs="auto">
                   <Button onClick={() => correctGrammarAndSpelling(transcript)} variant="primary" size="lg">
                     Correct Grammar & Spelling
+                  </Button>
+                </Col>
+                <Col xs="auto">
+                  <Button onClick={handleReadAloud} variant={isReadingAloud ? "warning" : "success"} size="lg">
+                    {isReadingAloud ? "Stop Reading" : "Read Aloud"}
                   </Button>
                 </Col>
               </Row>
