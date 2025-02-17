@@ -10,7 +10,7 @@ import "./App.css";
 import Dashboard from "./Dashboard";
 import ChatGPT from "./ChatGPT";
 import ImageGeneration from "./ImageGeneration";
-import ImageAnalysis from "./ImageAnalysis";
+import HazardDetector from "./HazardDetector";
 import Translator from "./Translator";
 import SpeechtoText from "./SpeechtoText";
 import SignLanguage from "./SignLanguage";
@@ -64,8 +64,8 @@ function App() {
                       <NavDropdown.Item as={Link} to="/Translator">
                         Translator
                       </NavDropdown.Item>
-                      <NavDropdown.Item as={Link} to="/SpeechtoText">
-                        Speech to Text
+                      <NavDropdown.Item as={Link} to="/HazardDetector">
+                        Hazard Detector
                       </NavDropdown.Item>
                     </NavDropdown>
 
@@ -81,6 +81,9 @@ function App() {
                       </NavDropdown.Item>
                       <NavDropdown.Item as={Link} to="/SignLanguage">
                         Sign Language Decipher
+                      </NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/SpeechtoText">
+                        Speech to Text
                       </NavDropdown.Item>
                     </NavDropdown>
                   </Nav>
@@ -138,10 +141,10 @@ function App() {
               }
             />
             <Route
-              path="/ImageAnalysis"
+              path="/HazardDetector"
               element={
                 <ProtectedRoute>
-                  <ImageAnalysis />
+                  <HazardDetector />
                 </ProtectedRoute>
               }
             />

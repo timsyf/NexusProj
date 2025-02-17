@@ -13,7 +13,7 @@ const Dashboard = () => {
               </Card.Title>
               <Card.Text className="text-center text-muted mb-4">
                 Nexus is a versatile web application integrating multiple
-                AI-driven services focused on object detection, image analysis,
+                AI-driven services focused on object detection, Hazard Detector,
                 and other impactful software solutions that can adapt to various
                 industry needs.
               </Card.Text>

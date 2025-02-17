@@ -273,7 +273,7 @@ function TranslatorWithOpenAI() {
             <Row>
               <Col>
                 <Button onClick={() => handleReadAloud()} variant={isReadingAloud ? "warning" : "success"} disabled={!translatedText}>
-                  {isReadingAloud ? "Stop Reading" : "Read Aloud (OpenAI TTS)"}
+                  {isReadingAloud ? "Stop Reading" : "Read"}
                 </Button>
               </Col>
             </Row>
