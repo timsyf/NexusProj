@@ -5,16 +5,12 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/api/analyzed', methods=['POST'])
+#@app.route('/api/analyzed', methods=['POST'])
+@app.route('/api/object_detection', methods=['POST'])
+
 def analyzed():
     data = request.get_json()
-    result = data.get('result')
-    image = data.get('image')
-
-    print("Analysis received:")
-    print(f"Result: {result}")
-    print(f"Image size: {len(image)} bytes (base64)")
-
+    print(f"Result: {data}")
     return jsonify({"status": "received", "message": "Analysis data received"}), 200
 
 if __name__ == '__main__':

@@ -4,13 +4,14 @@ const msRest = require("@azure/ms-rest-js");
 const PredictionApi = require("@azure/cognitiveservices-customvision-prediction");
 
 function OD() {
+  const [snapshotImage, setSnapshotImage] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const overlayCanvasRef = useRef(null);
-  const [results, setResults] = useState("");
-  const [minProbability, setMinProbability] = useState(99.5);
+  const [results, setResults] = useState([]);
+  const [minProbability, setMinProbability] = useState(80);
   const [intervalSeconds, setIntervalSeconds] = useState(1.0);
-  const [isRunning, setIsRunning] = useState(true);
+  const [isRunning, setIsRunning] = useState(false);
   const [useEnvKeys, setUseEnvKeys] = useState(true);
   const [manualKeys, setManualKeys] = useState({
     predictionKey: "",
@@ -18,6 +19,17 @@ function OD() {
     publishIterationName: "",
     projectId: "",
   });
+  const [sortBy, setSortBy] = useState("probability");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [enableApiCall, setEnableApiCall] = useState(false);
+  const [runOnce, setRunOnce] = useState(false);
+  useEffect(() => {
+    if (!runOnce) setSnapshotImage(null);
+  }, [runOnce]);
+  const [apiPort, setApiPort] = useState("3001");
+  const [apiRoute, setApiRoute] = useState("object_detection");
+
+  const predictionAbortController = useRef(null);
 
   const getKeys = () => {
     if (useEnvKeys) {
@@ -43,8 +55,6 @@ function OD() {
   );
 
   useEffect(() => {
-    let intervalId;
-
     const startCamera = () => {
       navigator.mediaDevices
         .getUserMedia({ video: true })
@@ -73,7 +83,15 @@ function OD() {
         });
     };
 
+    startCamera();
+  }, []);
+
+  useEffect(() => {
+    let intervalId;
+
     const captureImage = async () => {
+      if (!isRunning) return;
+
       const canvas = canvasRef.current;
       const overlayCanvas = overlayCanvasRef.current;
       const video = videoRef.current;
@@ -86,6 +104,8 @@ function OD() {
         const base64Image = canvas.toDataURL("image/png");
 
         try {
+          predictionAbortController.current = new AbortController();
+
           const byteCharacters = atob(base64Image.split(",")[1]);
           const byteArray = new Uint8Array(byteCharacters.length);
           for (let i = 0; i < byteCharacters.length; i++) {
@@ -96,7 +116,8 @@ function OD() {
           const results = await predictor.detectImage(
             projectId,
             publishIterationName,
-            blob
+            blob,
+            { abortSignal: predictionAbortController.current.signal }
           );
 
           const filteredResults = results.predictions.filter(
@@ -104,12 +125,7 @@ function OD() {
               predictedResult.probability * 100 >= minProbability
           );
 
-          overlayContext.clearRect(
-            0,
-            0,
-            overlayCanvas.width,
-            overlayCanvas.height
-          );
+          overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
           filteredResults.forEach((predictedResult) => {
             const { boundingBox, probability, tagName } = predictedResult;
@@ -120,59 +136,80 @@ function OD() {
             const w = width * overlayCanvas.width;
             const h = height * overlayCanvas.height;
 
-            overlayContext.strokeStyle = "red";
+            overlayContext.strokeStyle = probability >= 0.9 ? "lime" : probability >= 0.7 ? "orange" : "red";
             overlayContext.lineWidth = 2;
             overlayContext.strokeRect(x, y, w, h);
 
-            overlayContext.fillStyle = "red";
-            overlayContext.font = "14px Arial";
-            overlayContext.fillText(
-              `${tagName} (${(probability * 100).toFixed(2)}%)`,
-              x,
-              y > 10 ? y - 5 : y + 15
-            );
+            const labelText = `${tagName} (${(probability * 100).toFixed(2)}%)`;
+            const textWidth = overlayContext.measureText(labelText).width;
+            overlayContext.fillStyle = "rgba(0, 0, 0, 0.6)";
+            overlayContext.fillRect(x, y > 10 ? y - 20 : y + 2, textWidth + 6, 16);
+            overlayContext.fillStyle = probability >= 0.9 ? "lime" : probability >= 0.7 ? "orange" : "red";
+            overlayContext.fillText(labelText, x + 3, y > 10 ? y - 6 : y + 14);
           });
 
-          const resultText = filteredResults
-            .map(
-              (predictedResult) =>
-                `${predictedResult.tagName}: ${(
-                  predictedResult.probability * 100.0
-                ).toFixed(2)}%`
-            )
-            .join("\n");
+          setResults(filteredResults);
 
-          setResults(resultText);
+          // If Run Once is active, capture the canvas and display it
+          if (runOnce) {
+            const snapshotCanvas = document.createElement("canvas");
+            snapshotCanvas.width = overlayCanvas.width;
+            snapshotCanvas.height = overlayCanvas.height;
+            const snapshotCtx = snapshotCanvas.getContext("2d");
+            snapshotCtx.drawImage(canvas, 0, 0);
+            snapshotCtx.drawImage(overlayCanvas, 0, 0);
+            setSnapshotImage(snapshotCanvas.toDataURL("image/png"));
+          }
+
+          if (enableApiCall) {
+            try {
+              await fetch(`http://localhost:${apiPort}/api/${apiRoute}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ predictions: filteredResults })
+              });
+            } catch (err) {
+              console.error("Error sending API call:", err);
+            }
+          }
         } catch (error) {
-          console.error("Error during prediction:", error);
+          if (error.name !== "AbortError") {
+            console.error("Error during prediction:", error);
+          }
         }
       }
     };
 
     if (isRunning) {
-      startCamera();
-      intervalId = setInterval(captureImage, intervalSeconds * 1000);
+    if (runOnce) {
+      (async () => {
+        await captureImage();
+        setIsRunning(false);
+      })();
     } else {
-      if (videoRef.current?.srcObject) {
-        const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach((track) => track.stop());
+      intervalId = setInterval(captureImage, intervalSeconds * 1000);
+    }
+    } else {
+      if (predictionAbortController.current) {
+        predictionAbortController.current.abort();
       }
       clearInterval(intervalId);
       if (overlayCanvasRef.current) {
         const overlayContext = overlayCanvasRef.current.getContext("2d");
         overlayContext.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
       }
-      setResults("");
+      setResults([]);
     }
 
     return () => {
-      clearInterval(intervalId);
-      if (videoRef.current?.srcObject) {
-        const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach((track) => track.stop());
+      if (predictionAbortController.current) {
+        predictionAbortController.current.abort();
       }
+      clearInterval(intervalId);
     };
-  }, [minProbability, intervalSeconds, isRunning, predictionKey, predictionEndpoint, publishIterationName, projectId]);
+  }, [minProbability, intervalSeconds, isRunning, predictionKey, predictionEndpoint, publishIterationName, projectId, enableApiCall, apiPort, apiRoute]);
 
   const toggleRunning = () => {
     setIsRunning(!isRunning);
@@ -183,13 +220,25 @@ function OD() {
     setManualKeys((prev) => ({ ...prev, [name]: value }));
   };
 
+  const sortedResults = [...results].sort((a, b) => {
+    if (sortBy === "probability") {
+      return sortOrder === "asc"
+        ? a.probability - b.probability
+        : b.probability - a.probability;
+    } else {
+      return sortOrder === "asc"
+        ? a.tagName.localeCompare(b.tagName)
+        : b.tagName.localeCompare(a.tagName);
+    }
+  });
+
   return (
     <Container className="d-flex justify-content-center align-items-center">
       <Row className="justify-content-center">
         <Col>
           <Card>
             <Card.Body>
-              <h1 className="text-center mb-4">Webcam Feed</h1>
+              <h1 className="text-center mb-4">Object Detection</h1>
               <div className="position-relative">
                 <video
                   ref={videoRef}
@@ -205,9 +254,31 @@ function OD() {
               </div>
               <canvas ref={canvasRef} style={{ display: "none" }} />
               <h2>Predictions (Above {minProbability}% probability):</h2>
+              <Form.Select
+                className="mb-2"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="probability">Sort by Probability</option>
+                <option value="tagName">Sort by Name</option>
+              </Form.Select>
+              <Form.Select
+                className="mb-3"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </Form.Select>
               <Form.Control
                 as="textarea"
-                value={results}
+                value={sortedResults
+                  .map((predictedResult) =>
+                    `${predictedResult.tagName}: ${(
+                      predictedResult.probability * 100.0
+                    ).toFixed(2)}%`
+                  )
+                  .join("\n")}
                 readOnly
                 rows={10}
                 style={{
@@ -221,24 +292,15 @@ function OD() {
                 }}
               />
               <div className="mt-4">
-                <Form.Label>Toggle Key Source:</Form.Label>
-                <Form.Check
-                  type="radio"
-                  label="Use Environment Variables"
-                  name="keySource"
-                  checked={useEnvKeys}
-                  onChange={() => setUseEnvKeys(true)}
-                  disabled={isRunning}
-                />
-                <Form.Check
-                  type="radio"
-                  label="Manual Input"
-                  name="keySource"
-                  checked={!useEnvKeys}
-                  onChange={() => setUseEnvKeys(false)}
-                  disabled={isRunning}
-                />
-              </div>
+  <Form.Check
+    type="switch"
+    id="toggleKeySource"
+    label="Use Environment Variables"
+    checked={useEnvKeys}
+    onChange={() => setUseEnvKeys(!useEnvKeys)}
+    disabled={isRunning}
+  />
+</div>
               {!useEnvKeys && (
                 <div className="mt-4">
                   <Form.Group>
@@ -288,9 +350,9 @@ function OD() {
                 <Form.Range
                   min={0}
                   max={100}
-                  step={0.01}
+                  step={1}
                   value={minProbability}
-                  onChange={(e) => setMinProbability(parseFloat(e.target.value).toFixed(2))}
+                  onChange={(e) => setMinProbability(parseFloat(e.target.value))}
                   disabled={isRunning}
                 />
                 <div className="text-center mt-2">
@@ -302,23 +364,66 @@ function OD() {
                 <Form.Range
                   min={1}
                   max={5}
-                  step={0.1}
+                  step={1}
                   value={intervalSeconds}
-                  onChange={(e) => setIntervalSeconds(parseFloat(e.target.value).toFixed(1))}
+                  onChange={(e) => setIntervalSeconds(parseFloat(e.target.value))}
                   disabled={isRunning}
                 />
                 <div className="text-center mt-2">
                   <strong>{intervalSeconds} Seconds</strong>
                 </div>
               </div>
+              <div className="mt-4">
+                <Form.Check
+  type="switch"
+  id="enableApiCall"
+  label="Enable API Call"
+  checked={enableApiCall}
+  onChange={() => setEnableApiCall(!enableApiCall)}
+  disabled={isRunning}
+/>
+<Form.Check
+  type="switch"
+  id="runOnce"
+  label="Run Once"
+  checked={runOnce}
+  onChange={() => setRunOnce(!runOnce)}
+  disabled={isRunning}
+/>
+                {enableApiCall && (<>
+                  <Form.Group className="mt-2">
+                    <Form.Label>API Port</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={apiPort}
+                      onChange={(e) => setApiPort(e.target.value)}
+                      disabled={isRunning}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mt-2">
+                    <Form.Label>API Route</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={apiRoute}
+                      onChange={(e) => setApiRoute(e.target.value)}
+                      disabled={isRunning}
+                    />
+                  </Form.Group>
+                </>)}
+              </div>
               <div className="mt-4 text-center">
+              
                 <Button
-                  variant={isRunning ? "danger" : "success"}
-                  onClick={toggleRunning}
-                >
-                  {isRunning ? "Stop" : "Start"}
+  variant={isRunning ? "danger" : "success"}
+  onClick={toggleRunning}
+>
+  {isRunning ? "Stop" : runOnce ? "Run" : "Start"}
                 </Button>
               </div>
+              <br></br>
+              {snapshotImage && (
+  <img src={snapshotImage} alt="Snapshot with Detections" className="img-fluid mb-3" />
+)}
             </Card.Body>
           </Card>
         </Col>
