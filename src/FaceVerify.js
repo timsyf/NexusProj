@@ -172,15 +172,6 @@ const getConfidenceLabel = (distance) => {
             <Card.Body>
               <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
                 <Tab eventKey="verify" title="Verify">
-                  <Form.Check
-                    type="switch"
-                    id="toggle-webcam"
-                    label="Use Webcam"
-                    checked={useWebcam}
-                    onChange={() => setUseWebcam(!useWebcam)}
-                    className="mb-3"
-                  />
-
                   {useWebcam ? (
                     <video
                       ref={videoRef}
@@ -235,28 +226,28 @@ const getConfidenceLabel = (distance) => {
                   </Form.Group>
                 </Tab>
 
-<Tab eventKey="manage" title="Manage Folders">
-  <div className="mb-3">
-    <Button variant="secondary" onClick={fetchEnrolledFolders} className="mb-2">
-      Refresh List
-    </Button>
-    <ul>
-      {enrolledFolders.map((folder) => (
-        <li key={folder} className="d-flex justify-content-between align-items-center mb-2">
-          <span>{folder}</span>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => deleteFolder(folder)}
-          >
-            Delete
-          </Button>
-        </li>
-      ))}
-    </ul>
-  </div>
-</Tab>
-</Tabs>
+              <Tab eventKey="manage" title="Manage Folders">
+                <div className="mb-3">
+                  <Button variant="secondary" onClick={fetchEnrolledFolders} className="mb-2">
+                    Refresh List
+                  </Button>
+                  <ul>
+                    {enrolledFolders.map((folder) => (
+                      <li key={folder} className="d-flex justify-content-between align-items-center mb-2">
+                        <span>{folder}</span>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => deleteFolder(folder)}
+                        >
+                          Delete
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </Tab>
+              </Tabs>
 
               {activeTab === "verify" && (
                 <Form.Check
