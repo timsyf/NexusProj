@@ -6,7 +6,8 @@ app = Flask(__name__)
 CORS(app)
 
 #@app.route('/api/analyzed', methods=['POST'])
-@app.route('/api/object_detection', methods=['POST'])
+#@app.route('/api/object_detection', methods=['POST'])
+@app.route('/api/face_recognition', methods=['POST'])
 
 def analyzed():
     data = request.get_json()

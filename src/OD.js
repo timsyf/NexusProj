@@ -233,12 +233,14 @@ function OD() {
   });
 
   return (
-    <Container className="d-flex justify-content-center align-items-center">
+    <Container className="py-4 d-flex justify-content-center align-items-center">
       <Row className="justify-content-center">
         <Col>
           <Card>
+            <Card.Header as="h3" className="text-center">
+              Object Detection
+            </Card.Header>
             <Card.Body>
-              <h1 className="text-center mb-4">Object Detection</h1>
               <div className="position-relative">
                 <video
                   ref={videoRef}

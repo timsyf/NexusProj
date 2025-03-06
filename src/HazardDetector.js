@@ -135,7 +135,7 @@ function Home() {
   };
 
   return (
-    <Container className="py-5">
+    <Container className="py-4">
       <Row>
         <Col md={8} className="mb-4">
           <Card>

@@ -5,6 +5,10 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+const multer = require("multer");
+const axios = require("axios");
+const FormData = require("form-data");
+const fs = require("fs");
 
 const uri = process.env.MONGO_URI;
 mongoose
@@ -16,13 +20,16 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
+const upload = multer({ dest: "uploads/" });
+
+// --- User Model ---
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
 });
-
 const User = mongoose.model("User", userSchema);
 
+// --- Auth Routes ---
 app.post("/register", async (req, res) => {
   const { username, password } = req.body;
 
@@ -33,8 +40,8 @@ app.post("/register", async (req, res) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
   const newUser = new User({ username, password: hashedPassword });
-
   await newUser.save();
+
   res.status(201).json({ message: "User registered successfully" });
 });
 
@@ -53,6 +60,16 @@ app.post("/login", async (req, res) => {
 
   const token = jwt.sign({ id: user._id }, "secretkey", { expiresIn: "1h" });
   res.json({ message: "Login successful", token });
+});
+
+// --- DeepFace: Verify Endpoint ---
+app.post("/api/verify", async (req, res) => {
+  try {
+    const response = await axios.post("http://localhost:5001/verify", req.body);
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({ error: "Verification failed", details: error.message });
+  }
 });
 
 app.listen(5000, () => {

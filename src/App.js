@@ -8,7 +8,6 @@ import {
 } from "react-router-dom";
 import "./App.css";
 import Dashboard from "./Dashboard";
-import ChatGPT from "./ChatGPT";
 import ImageGeneration from "./ImageGeneration";
 import HazardDetector from "./HazardDetector";
 import Translator from "./Translator";
@@ -18,6 +17,7 @@ import OD from "./OD";
 import Login from "./login";
 import NotFound from "./NotFound";
 import Register from "./register";
+import FaceEnrollVerify from "./FaceVerify";
 import {
   Navbar,
   Nav,
@@ -57,7 +57,7 @@ function App() {
                     <Nav.Link as={Link} to="/dashboard">
                       Dashboard
                     </Nav.Link>
-                    <NavDropdown title="OpenAI" id="services-nav-dropdown">
+                    <NavDropdown title="AI" id="services-nav-dropdown">
                       <NavDropdown.Item as={Link} to="/ImageGeneration">
                         Image Generator
                       </NavDropdown.Item>
@@ -69,16 +69,16 @@ function App() {
                       </NavDropdown.Item>
                     </NavDropdown>
 
-                    <NavDropdown title="Object Detections" id="others-nav-dropdown">
+                    <NavDropdown title="Detection" id="others-nav-dropdown">
                       <NavDropdown.Item as={Link} to="/OD">
                         Object Detection
+                      </NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/FaceVerify">
+                        Face Recognition
                       </NavDropdown.Item>
                     </NavDropdown>
 
                     <NavDropdown title="Testing" id="others-nav-dropdown">
-                      <NavDropdown.Item as={Link} to="/ChatGPT">
-                        ChatGPT
-                      </NavDropdown.Item>
                       <NavDropdown.Item as={Link} to="/SignLanguage">
                         Sign Language Decipher
                       </NavDropdown.Item>
@@ -121,14 +121,6 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/ChatGPT"
-              element={
-                <ProtectedRoute>
-                  <ChatGPT />
                 </ProtectedRoute>
               }
             />
@@ -177,6 +169,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <OD />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/FaceVerify"
+              element={
+                <ProtectedRoute>
+                  <FaceEnrollVerify />
                 </ProtectedRoute>
               }
             />
