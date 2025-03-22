@@ -235,7 +235,7 @@ function OD() {
   return (
     <Container className="py-4 d-flex justify-content-center align-items-center">
       <Row className="justify-content-center">
-        <Col>
+        <Col className="mb-3">
           <Card>
             <Card.Header as="h3" className="text-center">
               Object Detection
@@ -255,7 +255,15 @@ function OD() {
                 />
               </div>
               <canvas ref={canvasRef} style={{ display: "none" }} />
-              <h2>Predictions (Above {minProbability}% probability):</h2>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col>
+          <Card>
+            <Card.Header as="h3" className="text-center">
+              Predictions
+            </Card.Header>
+            <Card.Body>
               <Form.Select
                 className="mb-2"
                 value={sortBy}

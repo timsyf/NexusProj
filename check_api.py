@@ -7,7 +7,8 @@ CORS(app)
 
 #@app.route('/api/analyzed', methods=['POST'])
 #@app.route('/api/object_detection', methods=['POST'])
-@app.route('/api/face_recognition', methods=['POST'])
+#@app.route('/api/face_recognition', methods=['POST'])
+@app.route('/api/predict-sign', methods=['POST'])
 
 def analyzed():
     data = request.get_json()

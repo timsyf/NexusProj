@@ -3,12 +3,80 @@ from flask_cors import CORS
 from deepface import DeepFace
 import os
 import shutil
+from flask import Flask, request, jsonify
+import base64
+import cv2
+import numpy as np
+from keras.models import load_model
+import speech_recognition as sr
+import uuid
+import ffmpeg
+import traceback
+from pydub import AudioSegment
 
 app = Flask(__name__)
 CORS(app)
 
+CHUNK_MS = 5000  # 5 seconds
+
 FACE_DB = "./face_data"
 
+@app.route("/extract-audio-subtitles", methods=["POST"])
+def extract_audio_subtitles():
+    file = request.files.get("video")
+    if not file:
+        return jsonify({"error": "No video uploaded"}), 400
+
+    video_id = str(uuid.uuid4())
+    video_path = f"{video_id}.mp4"
+    audio_path = f"{video_id}.wav"
+    file.save(video_path)
+
+    try:
+        # Step 1: Extract audio with ffmpeg
+        ffmpeg.input(video_path).output(audio_path, ac=1, ar=16000).run(overwrite_output=True)
+
+        # Step 2: Load audio and split into chunks
+        audio = AudioSegment.from_wav(audio_path)
+        duration_ms = len(audio)
+        recognizer = sr.Recognizer()
+
+        subtitles = []
+        for i in range(0, duration_ms, CHUNK_MS):
+            chunk = audio[i:i + CHUNK_MS]
+            chunk_path = f"{video_id}_chunk{i}.wav"
+            chunk.export(chunk_path, format="wav")
+
+            with sr.AudioFile(chunk_path) as source:
+                audio_data = recognizer.record(source)
+
+            try:
+                text = recognizer.recognize_google(audio_data)
+            except sr.UnknownValueError:
+                text = "(Unclear speech)"
+            except Exception as e:
+                text = f"(Error: {str(e)})"
+
+            subtitles.append({
+                "text": text,
+                "start": i / 1000,
+                "end": (i + CHUNK_MS) / 1000
+            })
+
+            os.remove(chunk_path)
+
+        return jsonify({"subtitles": subtitles})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        for path in [video_path, audio_path]:
+            if os.path.exists(path):
+                os.remove(path)
+
+# Existing DeepFace & Folder routes
 @app.route("/verify", methods=["POST"])
 def verify():
     img = request.files.get("image")
@@ -36,8 +104,6 @@ def verify():
             return jsonify({"matched": False})
 
         top = result[0].iloc[0]
-        print("[DEBUG] Columns returned:", result[0].columns.tolist())
-
         identity = os.path.basename(top["identity"])
         distance = float(top["distance"])
         print(f"[MATCH] {identity} | Distance: {distance}")
@@ -52,17 +118,14 @@ def verify():
         print("[ERROR]", str(e))
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/enroll-folder", methods=["POST"])
 def enroll_folder():
     files = request.files.getlist("images")
     if not files:
         return jsonify({"error": "No images received"}), 400
 
-    # Derive person's name from first file path like face_data/timothy/image1.jpg
-    first_filename = files[0].filename
     try:
-        # Try to parse name from folder path
+        first_filename = files[0].filename
         parts = first_filename.split("/")
         person_name = parts[-2] if len(parts) > 1 else "unknown"
     except Exception:
@@ -97,7 +160,6 @@ def list_folders():
     except Exception as e:
         print("[ERROR - LIST FOLDERS]", str(e))
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/delete-folder/<folder_name>", methods=["DELETE"])
 def delete_folder(folder_name):

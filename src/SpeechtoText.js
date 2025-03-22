@@ -1,263 +1,322 @@
-// Updated SpeechRecorder.jsx with OpenAI TTS integration
-import React, { useState, useEffect, useRef } from "react";
-import { Button, Container, Row, Col, Form, Card } from "react-bootstrap";
-import jsPDF from "jspdf";
+// SpeechRecorder with Whisper API + OpenAI TTS + Grammar Correction & Translation
+import React, { useState, useRef } from "react";
+import { Button, Container, Row, Col, Form, Card, Spinner } from "react-bootstrap";
 
 function SpeechRecorder() {
-  const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [summarizedText, setSummarizedText] = useState("");
-  const [recognition, setRecognition] = useState(null);
-  const [showExportButtons, setShowExportButtons] = useState(false);
-  const [isReadingAloud, setIsReadingAloud] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [audioChunks, setAudioChunks] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState("nova");
+  const [isReadingAloud, setIsReadingAloud] = useState(false);
+  const [targetLanguage, setTargetLanguage] = useState("es");
+  const [loadingButton, setLoadingButton] = useState("");
   const audioRef = useRef(null);
 
-  useEffect(() => {
-    if (!("webkitSpeechRecognition" in window)) {
-      alert("Your browser does not support speech recognition.");
-      return;
-    }
+  const languageOptions = [
+    { code: "en", name: "English" },
+    { code: "es", name: "Spanish" },
+    { code: "fr", name: "French" },
+    { code: "de", name: "German" },
+    { code: "zh", name: "Chinese" },
+    { code: "ja", name: "Japanese" },
+    { code: "ko", name: "Korean" },
+    { code: "ru", name: "Russian" },
+    { code: "pt", name: "Portuguese" },
+    { code: "ar", name: "Arabic" },
+    { code: "hi", name: "Hindi" },
+    { code: "it", name: "Italian" },
+    { code: "th", name: "Thai" },
+    { code: "id", name: "Indonesian" }
+  ];
 
-    const SpeechRecognition = window.webkitSpeechRecognition;
-    const recognitionInstance = new SpeechRecognition();
-    recognitionInstance.continuous = true;
-    recognitionInstance.interimResults = true;
-    recognitionInstance.lang = "en-US";
+  const handleStartRecording = async () => {
+    setTranscript("");
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    const chunks = [];
 
-    recognitionInstance.onresult = (event) => {
-      let finalTranscript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        }
+    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.onstop = async () => {
+      const audioBlob = new Blob(chunks, { type: "audio/webm" });
+      const formData = new FormData();
+      formData.append("file", audioBlob, "recording.webm");
+      formData.append("model", "whisper-1");
+
+      try {
+        const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`
+          },
+          body: formData
+        });
+
+        const data = await response.json();
+        setTranscript(data.text || "");
+      } catch (err) {
+        console.error("Whisper API error:", err);
       }
-      setTranscript((prev) => prev + finalTranscript);
     };
 
-    recognitionInstance.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-    };
-
-    setRecognition(recognitionInstance);
-  }, []);
-
-  const handleStartRecording = () => {
-    recognition.start();
+    recorder.start();
+    setMediaRecorder(recorder);
+    setAudioChunks(chunks);
     setIsRecording(true);
-    setShowExportButtons(false);
   };
 
   const handleStopRecording = () => {
-    recognition.stop();
-    setIsRecording(false);
-    setShowExportButtons(true);
+    if (mediaRecorder) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+    }
   };
 
   const exportAsPDF = (text) => {
-    const doc = new jsPDF();
-    const margin = 10;
-    const pageWidth = doc.internal.pageSize.width;
+    setLoadingButton("export");
+    const printWindow = window.open('', '_blank');
+    const escapedText = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br>');
 
-    doc.setFont("courier");
-    doc.setFontSize(10);
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Exported PDF</title>
+          <style>
+            @media print {
+              @page { margin: 20mm; size: A4; }
+              body { margin: 0; font-family: 'Arial', sans-serif; font-size: 14pt; line-height: 1.6; }
+            }
+            body {
+              font-family: 'Arial', sans-serif;
+              padding: 30px;
+              white-space: pre-wrap;
+              word-break: break-word;
+              font-size: 14pt;
+              line-height: 1.6;
+            }
+          </style>
+        </head>
+        <body>${escapedText}</body>
+      </html>
+    `);
 
-    doc.text(text, margin, margin, {
-      maxWidth: pageWidth - 2 * margin,
-    });
-
-    doc.save("transcription.pdf");
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    setLoadingButton("");
   };
 
   const summarizeText = async (text) => {
+    setLoadingButton("summary");
     const apiKey = process.env.REACT_APP_API_KEY;
-
-    try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content: "Summarize the following text in a single, concise paragraph. Only return the summary without any introductions or additional remarks.",
-            },
-            { role: "user", content: text },
-          ],
-        }),
-      });
-
-      const data = await response.json();
-      if (data.choices && data.choices[0]) {
-        const summary = data.choices[0].message.content;
-        setSummarizedText(summary);
-        return summary;
-      } else {
-        console.error("failed to summarize text.");
-        return "failed to summarize the text.";
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      return "An error occurred while summarizing.";
-    }
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: "Summarize this." },
+          { role: "user", content: text },
+        ],
+      }),
+    });
+    const data = await response.json();
+    setSummarizedText(data.choices[0].message.content);
+    setLoadingButton("");
+    return data.choices[0].message.content;
   };
 
-  const correctGrammarAndSpelling = async (text) => {
+  const correctGrammar = async () => {
+    setLoadingButton("grammar");
     const apiKey = process.env.REACT_APP_API_KEY;
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: "Correct the grammar, punctuation, and anything else you can find." },
+          { role: "user", content: transcript },
+        ],
+      }),
+    });
+    const data = await response.json();
+    setTranscript(data.choices[0].message.content);
+    setLoadingButton("");
+  };
 
-    try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content: "Correct the grammar and spelling in the following text. Only return the corrected version without explanations or extra commentary.",
-            },
-            { role: "user", content: text },
-          ],
-        }),
-      });
-
-      const data = await response.json();
-      if (data.choices && data.choices[0]) {
-        const correctedText = data.choices[0].message.content;
-        setTranscript(correctedText);
-      } else {
-        console.error("Failed to correct grammar and spelling.");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    }
+  const translateText = async () => {
+    setLoadingButton("translate");
+    const apiKey = process.env.REACT_APP_API_KEY;
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: `Translate this text to ${targetLanguage}` },
+          { role: "user", content: transcript },
+        ],
+      }),
+    });
+    const data = await response.json();
+    setTranscript(data.choices[0].message.content);
+    setLoadingButton("");
   };
 
   const handleReadAloud = async () => {
     if (!transcript) return;
-
     if (isReadingAloud && audioRef.current) {
       audioRef.current.pause();
       setIsReadingAloud(false);
       return;
     }
 
-    try {
-      const response = await fetch("https://api.openai.com/v1/audio/speech", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "tts-1",
-          voice: selectedVoice,
-          input: transcript,
-          response_format: "mp3",
-        }),
-      });
+    const response = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "tts-1",
+        voice: selectedVoice,
+        input: transcript,
+        response_format: "mp3",
+      }),
+    });
 
-      if (!response.ok) throw new Error("TTS generation failed");
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      setIsReadingAloud(true);
-
-      audio.onended = () => setIsReadingAloud(false);
-      audio.play();
-    } catch (error) {
-      console.error("Error during TTS playback:", error);
-    }
-  };
-
-  const handleSummarizeAndExport = async () => {
-    if (transcript.trim().split(/\s+/).length <= 50) {
-      alert("Please provide more than 50 words to summarize.");
-      return;
-    }
-    const summary = await summarizeText(transcript);
-    exportAsPDF(summary);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    setIsReadingAloud(true);
+    audio.onended = () => setIsReadingAloud(false);
+    audio.play();
   };
 
   return (
-    <Container style={{ paddingTop: "20px" }}>
+    <Container className="pt-4">
       <Card>
+        <Card.Header as="h3" className="text-center">
+          Speech Recorder
+        </Card.Header>
         <Card.Body>
-          <Card.Title className="text-center">Speech Recorder</Card.Title>
-
           <Row className="mb-3 justify-content-center">
-          <Col xs="auto">
-            {isRecording ? (
-                <Button onClick={handleStopRecording} variant="danger" size="lg">
+            <Col xs="auto">
+              {isRecording ? (
+                <Button onClick={handleStopRecording} variant="danger">
                   Stop Recording
                 </Button>
               ) : (
-                <Button onClick={handleStartRecording} variant="success" size="lg">
+                <Button onClick={handleStartRecording} variant="success">
                   Start Recording
                 </Button>
               )}
             </Col>
-          <Col xs="auto">
-            <Button onClick={() => setTranscript("")} variant="secondary" size="lg">
-              Clear Text
-            </Button>
-          </Col>
-        </Row>
-
+          </Row>
           <Row className="mb-3">
             <Col>
               <h5>Transcribed Text</h5>
               <Form.Control as="textarea" rows="4" value={transcript} readOnly />
             </Col>
           </Row>
-
-          {showExportButtons && (
-            <>
-              <Row className="mb-3">
-                <Col>
-                  <Form.Group>
-                    <Form.Label>Voice</Form.Label>
-                    <Form.Control as="select" value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)}>
-                      {["nova", "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "sage", "shimmer"].map((voice) => (
-                        <option key={voice} value={voice}>{voice}</option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Row className="justify-content-center">
-                <Col xs="auto">
-                  <Button onClick={() => exportAsPDF(transcript)} variant="primary" size="lg">
-                    PDF
-                  </Button>
-                </Col>
-                <Col xs="auto">
-                  <Button onClick={handleSummarizeAndExport} variant="primary" size="lg">
-                    Summarized PDF
-                  </Button>
-                </Col>
-                <Col xs="auto">
-                  <Button onClick={() => correctGrammarAndSpelling(transcript)} variant="primary" size="lg">
-                    Correct Grammar & Spelling
-                  </Button>
-                </Col>
-                <Col xs="auto">
-                  <Button onClick={handleReadAloud} variant={isReadingAloud ? "warning" : "success"} size="lg">
-                    {isReadingAloud ? "Stop Reading" : "Read Aloud"}
-                  </Button>
-                </Col>
-              </Row>
-            </>
-          )}
+          <Row className="mb-3">
+            <Col xs="auto">
+              <Button onClick={correctGrammar} variant="primary" disabled={loadingButton === "grammar"}>
+                {loadingButton === "grammar" ? <Spinner size="sm" animation="border" /> : "Correct Grammar"}
+              </Button>
+            </Col>
+            <Col xs="auto">
+              <Button onClick={translateText} variant="secondary" disabled={loadingButton === "translate"}>
+                {loadingButton === "translate" ? <Spinner size="sm" animation="border" /> : "Translate"}
+              </Button>
+            </Col>
+            <Col>
+              <Form.Group>
+                <Form.Control
+                  as="select"
+                  value={targetLanguage}
+                  onChange={(e) => setTargetLanguage(e.target.value)}
+                >
+                  {languageOptions.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </Form.Control>
+              </Form.Group>
+            </Col>
+          </Row>
+          <Row className="mb-3">
+            <Col>
+              <Form.Group>
+                <Form.Label>Voice</Form.Label>
+                <Form.Control as="select" value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)}>
+                  {["nova", "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "sage", "shimmer"].map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </Form.Control>
+              </Form.Group>
+            </Col>
+          </Row>
+          <Row className="mb-3">
+            <Col xs="auto">
+              <Button onClick={handleReadAloud} variant="success">
+                Read
+              </Button>
+            </Col>
+            <Col xs="auto">
+              <Button onClick={() => exportAsPDF(transcript)} variant="primary" disabled={loadingButton === "export"}>
+                {loadingButton === "export" ? <Spinner size="sm" animation="border" /> : "Export"}
+              </Button>
+            </Col>
+            <Col xs="auto">
+              <Button
+                onClick={async () => {
+                  const summary = await summarizeText(transcript);
+                  const apiKey = process.env.REACT_APP_API_KEY;
+                  const translationResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${apiKey}`,
+                    },
+                    body: JSON.stringify({
+                      model: "gpt-4",
+                      messages: [
+                        { role: "system", content: `Translate this text to ${targetLanguage}` },
+                        { role: "user", content: summary },
+                      ],
+                    }),
+                  });
+                  const translatedData = await translationResponse.json();
+                  const translatedSummary = translatedData.choices[0].message.content;
+                  exportAsPDF(translatedSummary);
+                }}
+                variant="secondary"
+                disabled={loadingButton === "summary"}
+              >
+                {loadingButton === "summary" ? <Spinner size="sm" animation="border" /> : "Summary Export"}
+              </Button>
+            </Col>
+          </Row>
         </Card.Body>
       </Card>
     </Container>

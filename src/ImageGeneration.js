@@ -140,9 +140,10 @@ function AI() {
       <Row className="justify-content-center">
         <Col md={8} lg={6}>
           <Card className="shadow-sm">
+            <Card.Header as="h3" className="text-center">
+              Image Generator
+            </Card.Header>
             <Card.Body>
-              <h1 className="text-center mb-4">Image Generator</h1>
-
               {error && (
                 <Alert variant="danger" className="text-center">
                   {error}

@@ -181,9 +181,10 @@ function TranslatorWithOpenAI() {
   return (
     <Container className="pt-4">
       <Card>
+        <Card.Header as="h3" className="text-center">
+          Translator
+        </Card.Header>
         <Card.Body>
-          <Card.Title className="text-center">Translator</Card.Title>
-
           <Row className="mb-3">
             <Col>
               {showUpload && (

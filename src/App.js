@@ -18,6 +18,8 @@ import Login from "./login";
 import NotFound from "./NotFound";
 import Register from "./register";
 import FaceEnrollVerify from "./FaceVerify";
+import MorseCode from "./MorseCode";
+import Subtitle from "./Subtitle";
 import {
   Navbar,
   Nav,
@@ -67,6 +69,15 @@ function App() {
                       <NavDropdown.Item as={Link} to="/HazardDetector">
                         Hazard Detector
                       </NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/SpeechtoText">
+                        Speech Recorder
+                      </NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/MorseCode">
+                        Morse Code
+                      </NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/Subtitle">
+                        Subtitle Generator
+                      </NavDropdown.Item>
                     </NavDropdown>
 
                     <NavDropdown title="Detection" id="others-nav-dropdown">
@@ -81,9 +92,6 @@ function App() {
                     <NavDropdown title="Testing" id="others-nav-dropdown">
                       <NavDropdown.Item as={Link} to="/SignLanguage">
                         Sign Language Decipher
-                      </NavDropdown.Item>
-                      <NavDropdown.Item as={Link} to="/SpeechtoText">
-                        Speech to Text
                       </NavDropdown.Item>
                     </NavDropdown>
                   </Nav>
@@ -177,6 +185,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <FaceEnrollVerify />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/MorseCode"
+              element={
+                <ProtectedRoute>
+                  <MorseCode />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/Subtitle"
+              element={
+                <ProtectedRoute>
+                  <Subtitle />
                 </ProtectedRoute>
               }
             />

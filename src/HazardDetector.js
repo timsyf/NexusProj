@@ -207,7 +207,7 @@ function Home() {
         </Col>
         <Col md={4}>
           <Card>
-            <Card.Header as="h5" className="text-center">
+            <Card.Header as="h3" className="text-center">
               Predefined Prompts
             </Card.Header>
             <Card.Body>
@@ -225,7 +225,7 @@ function Home() {
           </Card>
           <br />
           <Card>
-            <Card.Header as="h5" className="text-center">
+            <Card.Header as="h3" className="text-center">
               Captured Image
             </Card.Header>
             <Card.Body>
