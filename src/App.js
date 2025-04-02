@@ -12,7 +12,7 @@ import ImageGeneration from "./ImageGeneration";
 import HazardDetector from "./HazardDetector";
 import Translator from "./Translator";
 import SpeechtoText from "./SpeechtoText";
-import SignLanguage from "./SignLanguage";
+import Debate from "./Debate";
 import OD from "./OD";
 import Login from "./login";
 import NotFound from "./NotFound";
@@ -78,6 +78,9 @@ function App() {
                       <NavDropdown.Item as={Link} to="/Subtitle">
                         Subtitle Generator
                       </NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/Debate">
+                        Debate
+                      </NavDropdown.Item>
                     </NavDropdown>
 
                     <NavDropdown title="Detection" id="others-nav-dropdown">
@@ -90,9 +93,6 @@ function App() {
                     </NavDropdown>
 
                     <NavDropdown title="Testing" id="others-nav-dropdown">
-                      <NavDropdown.Item as={Link} to="/SignLanguage">
-                        Sign Language Decipher
-                      </NavDropdown.Item>
                     </NavDropdown>
                   </Nav>
                   <Nav>
@@ -165,10 +165,10 @@ function App() {
               }
             />
             <Route
-              path="/SignLanguage"
+              path="/Debate"
               element={
                 <ProtectedRoute>
-                  <SignLanguage />
+                  <Debate />
                 </ProtectedRoute>
               }
             />

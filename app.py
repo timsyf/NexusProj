@@ -4,10 +4,6 @@ from deepface import DeepFace
 import os
 import shutil
 from flask import Flask, request, jsonify
-import base64
-import cv2
-import numpy as np
-from keras.models import load_model
 import speech_recognition as sr
 import uuid
 import ffmpeg
@@ -18,7 +14,6 @@ app = Flask(__name__)
 CORS(app)
 
 CHUNK_MS = 5000  # 5 seconds
-
 FACE_DB = "./face_data"
 
 @app.route("/extract-audio-subtitles", methods=["POST"])
