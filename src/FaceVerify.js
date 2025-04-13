@@ -122,16 +122,22 @@ const getConfidenceLabel = (distance) => {
       console.log("Verification Result:", result);
       const isMatch = result.matched && result.identity && typeof result.distance === "number";
 
+      // Optional API callback (e.g. trigger another backend)
       if (enableApiCall) {
-        await fetch(`http://localhost:${apiPort}/api/${apiRoute}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            matched: result.matched,
-            identity: result.identity || "",
-            distance: result.distance ?? null
-          }),
-        });
+        try {
+          await fetch(`http://localhost:${apiPort}/api/${apiRoute}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              matched: result.matched,
+              identity: result.identity || "",
+              distance: result.distance ?? null
+            }),
+          });
+        } catch (apiError) {
+          console.warn("Optional API callback failed:", apiError);
+          // Just log it – do not block the main logic
+        }
       }
 
       if (isMatch) {

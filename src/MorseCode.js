@@ -175,7 +175,7 @@ function MorseCode() {
   }, [inputText, morseOutput, isListening, isInputFocused, isReadingAloud, recognition, playbackSpeed, audioURL]);
 
   return (
-    <Container className="d-flex justify-content-center align-items-center mt-5">
+    <Container className="d-flex justify-content-center align-items-center mt-4">
       <Row className="w-100">
         <Col md={8} className="mx-auto">
           <Card>

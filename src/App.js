@@ -34,7 +34,7 @@ export const AuthContext = createContext();
 
 function App() {
   const [auth, setAuth] = useState({
-    isAuthenticated: true,
+    isAuthenticated: false,
     token: null,
     username: "",
   });
@@ -90,9 +90,6 @@ function App() {
                       <NavDropdown.Item as={Link} to="/FaceVerify">
                         Face Recognition
                       </NavDropdown.Item>
-                    </NavDropdown>
-
-                    <NavDropdown title="Testing" id="others-nav-dropdown">
                     </NavDropdown>
                   </Nav>
                   <Nav>

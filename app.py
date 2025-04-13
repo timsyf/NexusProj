@@ -9,12 +9,62 @@ import uuid
 import ffmpeg
 import traceback
 from pydub import AudioSegment
+from werkzeug.security import generate_password_hash, check_password_hash
+from pymongo import MongoClient
+import jwt
+import datetime
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=os.path.join("src", ".env"))
 
 app = Flask(__name__)
 CORS(app)
 
-CHUNK_MS = 5000  # 5 seconds
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "defaultfallbackkey")
+
+mongo_uri = os.getenv("MONGO_URI")
+client = MongoClient(mongo_uri)
+db = client["auth_db"]
+users_collection = db["users"]
+
+CHUNK_MS = 5000
 FACE_DB = "./face_data"
+
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username or not password:
+        return jsonify({"message": "Missing username or password"}), 400
+
+    if users_collection.find_one({"username": username}):
+        return jsonify({"message": "User already exists"}), 400
+
+    hashed_password = generate_password_hash(password)
+    users_collection.insert_one({
+        "username": username,
+        "password": hashed_password
+    })
+
+    return jsonify({"message": "User registered successfully"}), 201
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    user = users_collection.find_one({"username": username})
+    if not user or not check_password_hash(user["password"], password):
+        return jsonify({"message": "Invalid credentials"}), 401
+
+    token = jwt.encode({
+        "id": str(user["_id"]),
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    }, app.config["SECRET_KEY"], algorithm="HS256")
+
+    return jsonify({"message": "Login successful", "token": token}), 200
 
 @app.route("/extract-audio-subtitles", methods=["POST"])
 def extract_audio_subtitles():
@@ -28,10 +78,8 @@ def extract_audio_subtitles():
     file.save(video_path)
 
     try:
-        # Step 1: Extract audio with ffmpeg
         ffmpeg.input(video_path).output(audio_path, ac=1, ar=16000).run(overwrite_output=True)
 
-        # Step 2: Load audio and split into chunks
         audio = AudioSegment.from_wav(audio_path)
         duration_ms = len(audio)
         recognizer = sr.Recognizer()
@@ -71,7 +119,6 @@ def extract_audio_subtitles():
             if os.path.exists(path):
                 os.remove(path)
 
-# Existing DeepFace & Folder routes
 @app.route("/verify", methods=["POST"])
 def verify():
     img = request.files.get("image")

@@ -59,6 +59,10 @@ function Debate() {
     }
   };
 
+  const stopSpeaking = () => {
+    stopTTS();
+  };
+
   const clearChat = () => {
     stopTTS();
     setChatLog([]);
@@ -156,7 +160,7 @@ function Debate() {
   };
 
   return (
-    <Container className="mt-5">
+    <Container className="mt-4">
       <Row className="justify-content-center">
         <Col md={8}>
           <Card>
@@ -196,6 +200,7 @@ function Debate() {
                   </Button>
                   <Button variant="outline-danger" onClick={clearChat}>Clear</Button>
                   <Button variant="outline-primary" onClick={exportChat}>Export</Button>
+                  <Button variant="outline-primary" onClick={stopSpeaking}>Pause</Button>
                 </Form.Group>
 
                 <div className="d-flex flex-wrap justify-content-between mt-3 gap-2">

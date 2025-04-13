@@ -50,7 +50,7 @@ function Subtitle() {
   }, [subtitles]);
 
   return (
-    <Container className="mt-5">
+    <Container className="mt-4">
       <Row>
         <Col md={8} className="mx-auto">
           <Card>
