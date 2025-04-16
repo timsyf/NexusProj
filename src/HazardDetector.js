@@ -1,24 +1,46 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Container, Row, Col, Button, Form, Card } from "react-bootstrap";
+import React, { useState, useRef, useEffect, useContext } from "react";
+import { Container, Row, Col, Button, Form, Card, Collapse } from "react-bootstrap";
+import { AuthContext } from "./App";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 function Home() {
   const [responseText, setResponseText] = useState("");
-    const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState("");
   const [capturedImage, setCapturedImage] = useState(null);
   const [apiCallEnabled, setApiCallEnabled] = useState(true);
   const [apiPort, setApiPort] = useState("3001");
   const [apiRoute, setApiRoute] = useState("analyzed");
+  const [predefinedPrompts, setPredefinedPrompts] = useState([]);
+  const [showPromptManager, setShowPromptManager] = useState(false);
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const { auth } = useContext(AuthContext);
 
-  const predefinedPrompts = [
+  const DEFAULT_PROMPTS = [
     "Is there anyone wearing a medical mask?",
     "Is there any fire?",
-    "Is there any towels?",
+    "Is there any towel?",
   ];
 
   useEffect(() => {
+    const fetchPrompts = async () => {
+      try {
+        const res = await fetch(`http://localhost:5001/prompts?username=${auth.username}`);
+        const data = await res.json();
+        if (!data.prompts || data.prompts.length === 0) {
+          setPredefinedPrompts(DEFAULT_PROMPTS);
+        } else {
+          setPredefinedPrompts(data.prompts);
+        }
+      } catch (error) {
+        console.error("Failed to fetch prompts:", error);
+        setPredefinedPrompts(DEFAULT_PROMPTS);
+      }
+    };
+
+    fetchPrompts();
+
     let stream;
     navigator.mediaDevices
       .getUserMedia({ video: true })
@@ -37,7 +59,7 @@ function Home() {
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, [auth.username]);
 
   const handleAnalysisTrigger = async (resultText, base64Image) => {
     try {
@@ -72,51 +94,39 @@ function Home() {
       const imageData = base64Image.split(",")[1];
 
       const predictionKey = process.env.REACT_APP_API_KEY;
-      const apiKey = predictionKey;
-
       const strictPrompt = `Respond with only a single word: Yes or No. ${prompt || "Is there something in this image?"}`;
 
       try {
-        const response = await fetch(
-          "https://api.openai.com/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: "gpt-4o",
-              messages: [
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: strictPrompt },
-                    {
-                      type: "image_url",
-                      image_url: {
-                        url: `data:image/jpeg;base64,${imageData}`,
-                      },
-                    },
-                  ],
-                },
-              ],
-            }),
-          }
-        );
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${predictionKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: strictPrompt },
+                  {
+                    type: "image_url",
+                    image_url: { url: `data:image/jpeg;base64,${imageData}` },
+                  },
+                ],
+              },
+            ],
+          }),
+        });
 
         const data = await response.json();
         let resultText = data.choices[0]?.message?.content || "No response";
 
-        // Normalize response to just Yes or No
         let cleaned = resultText.trim().toLowerCase();
         if (cleaned.includes("yes")) cleaned = "Yes";
         else if (cleaned.includes("no")) cleaned = "No";
         else cleaned = "Unclear";
-
-        setResponseText(cleaned);
-
-        
 
         setResponseText(cleaned);
 
@@ -139,9 +149,7 @@ function Home() {
       <Row>
         <Col md={8} className="mb-4">
           <Card>
-            <Card.Header as="h3" className="text-center">
-              Hazard Detector
-            </Card.Header>
+            <Card.Header as="h3" className="text-center">Hazard Detector</Card.Header>
             <Card.Body>
               <video
                 ref={videoRef}
@@ -152,10 +160,7 @@ function Home() {
                 className="mb-3 rounded"
                 style={{ border: "1px solid #dee2e6" }}
               />
-              <canvas
-                ref={canvasRef}
-                style={{ display: "none" }}
-              />
+              <canvas ref={canvasRef} style={{ display: "none" }} />
               <Form.Group className="mb-3">
                 <Form.Label>Custom Prompt</Form.Label>
                 <Form.Control
@@ -170,7 +175,6 @@ function Home() {
                 <Form.Label>API Port</Form.Label>
                 <Form.Control
                   type="text"
-                  placeholder="3001"
                   value={apiPort}
                   onChange={(e) => setApiPort(e.target.value)}
                 />
@@ -179,7 +183,6 @@ function Home() {
                 <Form.Label>API Route</Form.Label>
                 <Form.Control
                   type="text"
-                  placeholder="analyzed"
                   value={apiRoute}
                   onChange={(e) => setApiRoute(e.target.value)}
                 />
@@ -187,13 +190,11 @@ function Home() {
               <Form.Group className="mb-3">
                 <Form.Check
                   type="switch"
-                  id="api-call-toggle"
                   label="Enable API Call"
                   checked={apiCallEnabled}
                   onChange={() => setApiCallEnabled(!apiCallEnabled)}
                 />
               </Form.Group>
-              
               <Button variant="primary" onClick={captureImageAndAnalyze} block>
                 Analyze Image
               </Button>
@@ -205,11 +206,10 @@ function Home() {
             </Card.Body>
           </Card>
         </Col>
+
         <Col md={4}>
           <Card>
-            <Card.Header as="h3" className="text-center">
-              Predefined Prompts
-            </Card.Header>
+            <Card.Header as="h3" className="text-center">Predefined Prompts</Card.Header>
             <Card.Body>
               {predefinedPrompts.map((text, index) => (
                 <Button
@@ -223,11 +223,80 @@ function Home() {
               ))}
             </Card.Body>
           </Card>
-          <br />
-          <Card>
+
+          <Card className="mt-3">
             <Card.Header as="h3" className="text-center">
-              Captured Image
+              <Button
+                variant="link"
+                className="text-decoration-none w-100"
+                onClick={() => setShowPromptManager(!showPromptManager)}
+              >
+                Manage Prompts {showPromptManager ? "▲" : "▼"}
+              </Button>
             </Card.Header>
+            <Collapse in={showPromptManager}>
+              <Card.Body>
+                <Form>
+                  {predefinedPrompts.map((text, index) => (
+                    <Form.Group key={index} className="mb-2 d-flex">
+                      <Form.Control
+                        value={text}
+                        onChange={(e) => {
+                          const updated = [...predefinedPrompts];
+                          updated[index] = e.target.value;
+                          setPredefinedPrompts(updated);
+                        }}
+                      />
+                      <Button
+                        variant="danger"
+                        className="ms-2"
+                        onClick={() => {
+                          const updated = predefinedPrompts.filter((_, i) => i !== index);
+                          setPredefinedPrompts(updated);
+                        }}
+                      >
+                        ×
+                      </Button>
+                    </Form.Group>
+                  ))}
+                  <Button
+                    variant="success"
+                    className="w-100 mb-2"
+                    onClick={() => setPredefinedPrompts([...predefinedPrompts, ""])}
+                  >
+                    + Add Prompt
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="w-100"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("http://localhost:5001/prompts", {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                          },
+                          body: JSON.stringify({
+                            username: auth.username,
+                            prompts: predefinedPrompts.filter((p) => p.trim() !== ""),
+                          }),
+                        });
+                        const data = await res.json();
+                        alert(data.message || "Prompts saved.");
+                      } catch (error) {
+                        alert("Failed to save prompts.");
+                      }
+                    }}
+                  >
+                    Save Prompts
+                  </Button>
+                </Form>
+              </Card.Body>
+            </Collapse>
+          </Card>
+
+          <Card className="mt-3">
+            <Card.Header as="h3" className="text-center">Captured Image</Card.Header>
             <Card.Body>
               {capturedImage && (
                 <div className="mt-3">

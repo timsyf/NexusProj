@@ -13,6 +13,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import MongoClient
 import jwt
 import datetime
+from bson import ObjectId
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join("src", ".env"))
 
@@ -20,14 +21,42 @@ app = Flask(__name__)
 CORS(app)
 
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "defaultfallbackkey")
-
 mongo_uri = os.getenv("MONGO_URI")
 client = MongoClient(mongo_uri)
 db = client["auth_db"]
 users_collection = db["users"]
-
 CHUNK_MS = 5000
 FACE_DB = "./face_data"
+prompts_collection = db["prompts"]
+
+@app.route("/prompts", methods=["GET"])
+def get_prompts():
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"error": "Missing username"}), 400
+
+    prompts_doc = prompts_collection.find_one({"username": username})
+    if not prompts_doc:
+        return jsonify({"prompts": []})  # Will default on frontend
+
+    return jsonify({"prompts": prompts_doc.get("prompts", [])})
+
+@app.route("/prompts", methods=["POST"])
+def save_prompts():
+    data = request.get_json()
+    username = data.get("username")
+    prompts = data.get("prompts", [])
+
+    if not username or not isinstance(prompts, list):
+        return jsonify({"error": "Invalid input"}), 400
+
+    prompts_collection.update_one(
+        {"username": username},
+        {"$set": {"prompts": prompts}},
+        upsert=True
+    )
+
+    return jsonify({"message": "Prompts updated."})
 
 @app.route("/register", methods=["POST"])
 def register():
