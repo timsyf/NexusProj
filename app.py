@@ -6,16 +6,20 @@ import shutil
 from flask import Flask, request, jsonify
 import speech_recognition as sr
 import uuid
+import base64
 import ffmpeg
 import traceback
 from pydub import AudioSegment
 from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import MongoClient
 import jwt
+from io import BytesIO
+from PIL import Image
 import datetime
 from bson import ObjectId
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join("src", ".env"))
+from scipy.spatial.distance import cosine
 
 app = Flask(__name__)
 CORS(app)
@@ -25,9 +29,15 @@ mongo_uri = os.getenv("MONGO_URI")
 client = MongoClient(mongo_uri)
 db = client["auth_db"]
 users_collection = db["users"]
+face_collection = db["face_data"]
+prompts_collection = db["prompts"]
+TEMP_DB_PATH = "./temp_faces"
+TEMP_INPUT_IMAGE = "./temp_input"
+os.makedirs(TEMP_INPUT_IMAGE, exist_ok=True)
+os.makedirs(TEMP_DB_PATH, exist_ok=True)
+
 CHUNK_MS = 5000
 FACE_DB = "./face_data"
-prompts_collection = db["prompts"]
 
 @app.route("/prompts", methods=["GET"])
 def get_prompts():
@@ -37,7 +47,7 @@ def get_prompts():
 
     prompts_doc = prompts_collection.find_one({"username": username})
     if not prompts_doc:
-        return jsonify({"prompts": []})  # Will default on frontend
+        return jsonify({"prompts": []})
 
     return jsonify({"prompts": prompts_doc.get("prompts", [])})
 
@@ -148,102 +158,124 @@ def extract_audio_subtitles():
             if os.path.exists(path):
                 os.remove(path)
 
+def save_base64_to_image(base64_str, save_path):
+    header, encoded = base64_str.split(",", 1)
+    img_data = base64.b64decode(encoded)
+    with open(save_path, "wb") as f:
+        f.write(img_data)
+
 @app.route("/verify", methods=["POST"])
 def verify():
-    img = request.files.get("image")
-    if not img:
-        return jsonify({"error": "No image provided"}), 400
+    data = request.get_json()
+    base64_img = data.get("image")
+    username = data.get("username")
 
-    temp_path = "temp.jpg"
-    img.save(temp_path)
+    if not base64_img or not username:
+        return jsonify({"error": "Missing image or username"}), 400
 
     try:
-        print("[INFO] Searching for matches in folder:", FACE_DB)
+        temp_img_path = f"{TEMP_INPUT_IMAGE}/input_{uuid.uuid4().hex}.jpg"
+        save_base64_to_image(base64_img, temp_img_path)
 
-        result = DeepFace.find(
-            img_path=temp_path,
-            db_path=FACE_DB,
+        input_embedding = DeepFace.represent(
+            img_path=temp_img_path,
             model_name="Facenet512",
             detector_backend="retinaface",
             enforce_detection=True
-        )
+        )[0]["embedding"]
 
-        os.remove(temp_path)
+        os.remove(temp_img_path)
 
-        if len(result[0]) == 0:
-            print("[WARN] No match found.")
+        best_match = None
+        best_distance = float("inf")
+
+        for doc in face_collection.find({"username": username}):
+            enrolled_embedding = doc.get("embedding")
+            if not enrolled_embedding:
+                continue
+            dist = cosine(input_embedding, enrolled_embedding)
+            if dist < best_distance:
+                best_distance = dist
+                best_match = doc["person"]
+
+        if best_distance > 0.6:
             return jsonify({"matched": False})
-
-        top = result[0].iloc[0]
-        identity = os.path.basename(top["identity"])
-        distance = float(top["distance"])
-        print(f"[MATCH] {identity} | Distance: {distance}")
 
         return jsonify({
             "matched": True,
-            "identity": identity,
-            "distance": distance
+            "identity": best_match,
+            "distance": best_distance
         })
 
     except Exception as e:
-        print("[ERROR]", str(e))
+        print("[VERIFY ERROR]", str(e))
         return jsonify({"error": str(e)}), 500
 
 @app.route("/enroll-folder", methods=["POST"])
 def enroll_folder():
-    files = request.files.getlist("images")
-    if not files:
-        return jsonify({"error": "No images received"}), 400
+    data = request.get_json()
+    username = data.get("username")
+    images = data.get("images")
+    
+    if not username or not isinstance(images, list):
+        return jsonify({"error": "Invalid input"}), 400
+    
+    if not images:
+        return jsonify({"error": "No images provided"}), 400
 
     try:
-        first_filename = files[0].filename
-        parts = first_filename.split("/")
+        first_image = images[0]
+        name = first_image["name"]
+        parts = name.split("/")
         person_name = parts[-2] if len(parts) > 1 else "unknown"
-    except Exception:
-        return jsonify({"error": "Unable to determine identity name from file path"}), 400
 
-    person_dir = os.path.join(FACE_DB, person_name)
+        face_collection.delete_many({"person": person_name, "username": username})
 
-    try:
-        if os.path.exists(person_dir):
-            shutil.rmtree(person_dir)
-        os.makedirs(person_dir, exist_ok=True)
+        for img in images:
+            file_name = f"temp_{uuid.uuid4().hex}.jpg"
+            temp_path = os.path.join(TEMP_DB_PATH, file_name)
+            save_base64_to_image(img["base64"], temp_path)
 
-        for file in files:
-            filename = os.path.basename(file.filename)
-            save_path = os.path.join(person_dir, filename)
-            file.save(save_path)
+            embedding = DeepFace.represent(
+                img_path=temp_path,
+                model_name="Facenet512",
+                detector_backend="retinaface",
+                enforce_detection=True
+            )[0]["embedding"]
 
-        print(f"[ENROLL] {len(files)} files saved under {person_name}")
-        return jsonify({"message": f"{person_name} enrolled with {len(files)} images."})
+            os.remove(temp_path)
+
+            face_collection.insert_one({
+                "username": username,
+                "person": person_name,
+                "filename": img["name"],
+                "base64": img["base64"],
+                "embedding": embedding
+            })
+
+        return jsonify({"message": f"{person_name} enrolled with {len(images)} images."})
     except Exception as e:
-        print("[ERROR - ENROLL]", str(e))
+        print("[ENROLL ERROR]", str(e))
         return jsonify({"error": str(e)}), 500
 
 @app.route("/folders", methods=["GET"])
 def list_folders():
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"error": "Missing username"}), 400
+
     try:
-        folders = [
-            name for name in os.listdir(FACE_DB)
-            if os.path.isdir(os.path.join(FACE_DB, name))
-        ]
+        folders = face_collection.distinct("person", {"username": username})
         return jsonify({"folders": folders})
     except Exception as e:
-        print("[ERROR - LIST FOLDERS]", str(e))
         return jsonify({"error": str(e)}), 500
 
 @app.route("/delete-folder/<folder_name>", methods=["DELETE"])
 def delete_folder(folder_name):
-    folder_path = os.path.join(FACE_DB, folder_name)
     try:
-        if os.path.exists(folder_path) and os.path.isdir(folder_path):
-            shutil.rmtree(folder_path)
-            print(f"[DELETE] Folder removed: {folder_name}")
-            return jsonify({"message": f"Deleted folder '{folder_name}'."})
-        else:
-            return jsonify({"error": "Folder does not exist."}), 404
+        result = face_collection.delete_many({"person": folder_name})
+        return jsonify({"message": f"Deleted folder '{folder_name}' with {result.deleted_count} images."})
     except Exception as e:
-        print("[ERROR - DELETE FOLDER]", str(e))
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

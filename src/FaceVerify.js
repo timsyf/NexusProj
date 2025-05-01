@@ -1,10 +1,25 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Container, Row, Col, Button, Card, Form, Alert, Image, Badge, Spinner, Tabs, Tab } from "react-bootstrap";
+import React, { useState, useRef, useContext } from "react";
+import Webcam from "react-webcam";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Card,
+  Form,
+  Alert,
+  Image,
+  Badge,
+  Spinner,
+  Tabs,
+  Tab
+} from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
+import { AuthContext } from "./App";
 
 function FaceEnrollVerify() {
+  const { auth } = useContext(AuthContext);
   const [enrolledFolders, setEnrolledFolders] = useState([]);
-  const [useWebcam, setUseWebcam] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedFolder, setSelectedFolder] = useState([]);
   const [activeTab, setActiveTab] = useState("verify");
@@ -14,150 +29,122 @@ function FaceEnrollVerify() {
   const [matchResult, setMatchResult] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    let stream;
-    if (useWebcam && activeTab === "verify") {
-      navigator.mediaDevices
-        .getUserMedia({ video: true })
-        .then((s) => {
-          stream = s;
-          if (videoRef.current) {
-            videoRef.current.srcObject = s;
-          }
-        })
-        .catch((err) => {
-          console.error("Error accessing webcam:", err);
-        });
-    }
-
-    
-
-
-
-return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [useWebcam, activeTab]);
+  const [useWebcam, setUseWebcam] = useState(false);
+  const webcamRef = useRef(null);
 
   const fetchEnrolledFolders = async () => {
-  try {
-    const res = await fetch("http://localhost:5001/folders");
-    const data = await res.json();
-    setEnrolledFolders(data.folders || []);
-  } catch (err) {
-    console.error("Failed to fetch folders", err);
-  }
-};
+    try {
+      const res = await fetch(`http://localhost:5001/folders?username=${auth.username}`);
+      const data = await res.json();
+      setEnrolledFolders(data.folders || []);
+    } catch (err) {
+      console.error("Failed to fetch folders", err);
+    }
+  };
 
-const deleteFolder = async (folderName) => {
-  if (!window.confirm(`Are you sure you want to delete '${folderName}'?`)) return;
-  try {
-    await fetch(`http://localhost:5001/delete-folder/${folderName}`, { method: "DELETE" });
-    fetchEnrolledFolders();
-  } catch (err) {
-    console.error("Failed to delete folder", err);
-  }
-};
+  const deleteFolder = async (folderName) => {
+    if (!window.confirm(`Are you sure you want to delete '${folderName}'?`)) return;
+    try {
+      await fetch(`http://localhost:5001/delete-folder/${folderName}`, { method: "DELETE" });
+      fetchEnrolledFolders();
+    } catch (err) {
+      console.error("Failed to delete folder", err);
+    }
+  };
 
-const getConfidenceLabel = (distance) => {
+  const getConfidenceLabel = (distance) => {
     if (distance <= 0.4) return "Strong";
     if (distance <= 0.6) return "Moderate";
     return "Weak";
+  };
+
+  const toBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   const handleVerifyFace = async () => {
     setIsLoading(true);
 
     if (activeTab === "enroll" && selectedFolder.length > 0) {
-      const formData = new FormData();
-      for (let file of selectedFolder) {
-        formData.append("images", file);
-      }
-      await sendFolderForEnrollment(formData);
+      const base64Images = await Promise.all(
+        selectedFolder.map(file => toBase64(file).then(data => ({ name: file.webkitRelativePath || file.name, base64: data })))
+      );
+      await sendFolderForEnrollment(base64Images);
       setIsLoading(false);
       return;
     }
 
-    const formData = new FormData();
-
     if (useWebcam) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-
-      if (canvas && video) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext("2d");
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        canvas.toBlob(async (blob) => {
-          setPreviewImage(URL.createObjectURL(blob));
-          formData.append("image", blob, "face.jpg");
-          await sendFormData(formData);
-        }, "image/jpeg");
+      const screenshot = webcamRef.current.getScreenshot();
+      if (!screenshot) {
+        alert("Failed to capture from webcam.");
+        setIsLoading(false);
+        return;
       }
+      setPreviewImage(screenshot);
+      await sendFormData(screenshot);
     } else if (selectedFile) {
       setPreviewImage(URL.createObjectURL(selectedFile));
-      formData.append("image", selectedFile);
-      await sendFormData(formData);
+      const base64 = await toBase64(selectedFile);
+      await sendFormData(base64);
     } else {
-      alert("Please select an image file or use the webcam.");
-      setIsLoading(false);
+      alert("Please select an image file.");
     }
+
+    setIsLoading(false);
   };
 
-  const sendFormData = async (formData) => {
+  const captureFromWebcam = async () => {
+    const screenshot = webcamRef.current.getScreenshot();
+    if (!screenshot) return alert("Failed to capture from webcam.");
+    setPreviewImage(screenshot);
+    await sendFormData(screenshot);
+  };
+
+  const sendFormData = async (base64) => {
     try {
       const response = await fetch("http://localhost:5001/verify", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64, username: auth.username }),
       });
-
       const result = await response.json();
-      console.log("Verification Result:", result);
       const isMatch = result.matched && result.identity && typeof result.distance === "number";
 
-      // Optional API callback (e.g. trigger another backend)
-      if (enableApiCall) {
-        try {
-          await fetch(`http://localhost:${apiPort}/api/${apiRoute}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              matched: result.matched,
-              identity: result.identity || "",
-              distance: result.distance ?? null
-            }),
-          });
-        } catch (apiError) {
-          console.warn("Optional API callback failed:", apiError);
-          // Just log it – do not block the main logic
-        }
+    if (enableApiCall) {
+      try {
+        await fetch(`http://localhost:${apiPort}/api/${apiRoute}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            matched: result.matched,
+            identity: result.identity || "",
+            distance: result.distance ?? null,
+          }),
+        });
+      } catch (apiErr) {
+        console.warn("External API call failed:", apiErr);
       }
+    }
 
-      if (isMatch) {
-        setMatchResult({ identity: result.identity, distance: result.distance });
-      } else {
-        setMatchResult({ identity: null });
-      }
+      setMatchResult(isMatch ? { identity: result.identity, distance: result.distance } : { identity: null });
     } catch (err) {
       console.error("Verification error:", err);
       alert("Verification failed.");
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const sendFolderForEnrollment = async (formData) => {
+  const sendFolderForEnrollment = async (images) => {
     try {
       const response = await fetch("http://localhost:5001/enroll-folder", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images, username: auth.username }),
       });
       const data = await response.json();
       alert(data.message || "Folder enrolled successfully.");
@@ -167,27 +154,48 @@ const getConfidenceLabel = (distance) => {
     }
   };
 
+  const formatIdentity = (identity) => {
+    if (!identity) return "";
+    const nameWithSpaces = identity.replace(/-/g, " ");
+    return nameWithSpaces
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   return (
     <Container className="py-4 d-flex justify-content-center align-items-center">
       <Row className="justify-content-center">
         <Col>
           <Card>
-            <Card.Header as="h3" className="text-center">
-              Face Recognition
-            </Card.Header>
+            <Card.Header as="h3" className="text-center">Face Recognition</Card.Header>
             <Card.Body>
-              <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
+              <Tabs activeKey={activeTab} onSelect={(k) => { setActiveTab(k); if (k === "manage") fetchEnrolledFolders(); } } className="mb-3">
                 <Tab eventKey="verify" title="Verify">
+                  <Form.Check
+                    type="switch"
+                    id="use-webcam"
+                    label="Use Webcam"
+                    checked={useWebcam}
+                    onChange={() => {
+                      setUseWebcam(!useWebcam);
+                      setPreviewImage(null);
+                      setSelectedFile(null);
+                      setMatchResult(null);
+                    }}
+                    className="mb-3"
+                  />
+
                   {useWebcam ? (
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      width="100%"
-                      height="auto"
-                      className="mb-3 rounded"
-                      style={{ border: "1px solid #dee2e6" }}
-                    />
+                    <div className="text-center mb-3">
+                      <Webcam
+                        audio={false}
+                        ref={webcamRef}
+                        screenshotFormat="image/jpeg"
+                        width="100%"
+                        videoConstraints={{ facingMode: "user" }}
+                      />
+                    </div>
                   ) : (
                     <Form.Group controlId="formFile" className="mb-3">
                       <Form.Label>Select Image File</Form.Label>
@@ -221,7 +229,7 @@ const getConfidenceLabel = (distance) => {
 
                 <Tab eventKey="enroll" title="Enroll Folder">
                   <Form.Group controlId="formFolder" className="mb-3">
-                    <Form.Label>Select Folder (e.g. face_data/timothy)</Form.Label>
+                    <Form.Label>Select Folder</Form.Label>
                     <Form.Control
                       type="file"
                       webkitdirectory="true"
@@ -232,27 +240,21 @@ const getConfidenceLabel = (distance) => {
                   </Form.Group>
                 </Tab>
 
-              <Tab eventKey="manage" title="Manage Folders">
-                <div className="mb-3">
-                  <Button variant="secondary" onClick={fetchEnrolledFolders} className="mb-2">
-                    Refresh List
-                  </Button>
-                  <ul>
-                    {enrolledFolders.map((folder) => (
-                      <li key={folder} className="d-flex justify-content-between align-items-center mb-2">
-                        <span>{folder}</span>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => deleteFolder(folder)}
-                        >
-                          Delete
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Tab>
+                <Tab eventKey="manage" title="Manage Folders">
+                  <div className="mb-3">
+                    <Button variant="secondary" onClick={fetchEnrolledFolders} className="mb-2">
+                      Refresh List
+                    </Button>
+                    <ul>
+                      {enrolledFolders.map((folder) => (
+                        <li key={folder} className="d-flex justify-content-between align-items-center mb-2">
+                          <span>{folder}</span>
+                          <Button variant="danger" size="sm" onClick={() => deleteFolder(folder)}>Delete</Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </Tab>
               </Tabs>
 
               {activeTab === "verify" && (
@@ -287,14 +289,13 @@ const getConfidenceLabel = (distance) => {
                 </>
               )}
 
-              <canvas ref={canvasRef} style={{ display: "none" }} />
               {activeTab !== "manage" && (
-  <div className="d-flex justify-content-center mb-3">
-    <Button variant="primary" onClick={handleVerifyFace} disabled={isLoading}>
-      {isLoading ? <><Spinner animation="border" size="sm" className="me-2" />Processing...</> : activeTab === "enroll" ? "Enroll Folder" : "Verify Face"}
-    </Button>
-  </div>
-)}
+                <div className="d-flex justify-content-center mb-3">
+                  <Button variant="primary" onClick={handleVerifyFace} disabled={isLoading}>
+                    {isLoading ? (<><Spinner animation="border" size="sm" className="me-2" />Processing...</>) : activeTab === "enroll" ? "Enroll Folder" : "Verify Face"}
+                  </Button>
+                </div>
+              )}
             </Card.Body>
           </Card>
         </Col>
@@ -302,15 +303,5 @@ const getConfidenceLabel = (distance) => {
     </Container>
   );
 }
-
-const formatIdentity = (rawName) => {
-  if (!rawName) return "";
-  const baseName = rawName.split("_")[0];
-  const nameWithSpaces = baseName.replace(/-/g, " ");
-  return nameWithSpaces
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
 
 export default FaceEnrollVerify;
