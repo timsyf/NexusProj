@@ -6,6 +6,7 @@ function TranslatorWithOpenAI() {
   const [audioFile, setAudioFile] = useState(null);
   const [transcript, setTranscript] = useState("");
   const [translatedText, setTranslatedText] = useState("");
+  const [error, setError] = useState("");
   const [isReadingAloud, setIsReadingAloud] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("zh");
   const [fromLanguage, setFromLanguage] = useState("en");
@@ -33,6 +34,7 @@ function TranslatorWithOpenAI() {
 
   const handleAudioUpload = (e) => {
     const file = e.target.files[0];
+    setError("");
     setAudioFile(file);
     handleTranscribeAndTranslate(file);
   };
@@ -84,7 +86,6 @@ function TranslatorWithOpenAI() {
     setLoading(true);
     setTranscript("");
     setTranslatedText("");
-
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -99,8 +100,14 @@ function TranslatorWithOpenAI() {
         body: formData,
       });
 
+      if (!whisperRes.ok) {
+        const errorData = await whisperRes.json();
+        throw new Error(errorData.error?.message || "Whisper transcription failed.");
+      }
+
       const whisperData = await whisperRes.json();
       const text = whisperData.text;
+      if (!text) throw new Error("No transcription returned.");
       setTranscript(text);
 
       const translateRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -121,8 +128,14 @@ function TranslatorWithOpenAI() {
         }),
       });
 
+      if (!translateRes.ok) {
+        const errorData = await translateRes.json();
+        throw new Error(errorData.error?.message || "Translation failed.");
+      }
+
       const translateData = await translateRes.json();
-      const translated = translateData.choices[0].message.content.trim();
+      const translated = translateData.choices?.[0]?.message?.content?.trim();
+      if (!translated) throw new Error("No translation returned.");
       setTranslatedText(translated);
 
       if (autoReadAloud) {
@@ -130,7 +143,7 @@ function TranslatorWithOpenAI() {
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to transcribe or translate.");
+      setError(err.message || "Failed to transcribe or translate.");
     } finally {
       setLoading(false);
       transcribingRef.current = false;
@@ -185,6 +198,13 @@ function TranslatorWithOpenAI() {
           Translator
         </Card.Header>
         <Card.Body>
+          {error && (
+            <Row className="mb-3">
+              <Col>
+                <div className="alert alert-danger text-center">{error}</div>
+              </Col>
+            </Row>
+          )}
           <Row className="mb-3">
             <Col>
               {showUpload && (

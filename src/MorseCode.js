@@ -58,6 +58,7 @@ function MorseCode() {
   const [audioURL, setAudioURL] = useState(null);
   const [playbackSpeed, setPlaybackSpeed] = useState(150);
   const audioRef = useRef(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
@@ -86,6 +87,11 @@ function MorseCode() {
   };
 
   const handleReadAloud = async () => {
+    if (!inputText.trim()) {
+      setError("Text input is empty. Please enter text before reading aloud.");
+      return;
+    }
+    setError("");
     if (!inputText) return;
     if (isReadingAloud && audioRef.current) {
       audioRef.current.pause();
@@ -183,6 +189,13 @@ function MorseCode() {
               Text/Voice to Morse Code with Audio
             </Card.Header>
             <Card.Body className="text-center">
+              {error && (
+                <div className="mt-3">
+                  <div className="alert alert-danger text-center">
+                    <strong>Error:</strong> {error}
+                  </div>
+                </div>
+              )}
               <Form.Group controlId="textInput">
                 <Form.Label>Enter or Speak Text</Form.Label>
                 <Form.Control
@@ -229,12 +242,19 @@ function MorseCode() {
                   onChange={(e) => setPlaybackSpeed(parseInt(e.target.value))}
                 />
               </Form.Group>
-
               <div className="mt-3">
-                <Button onClick={() => setMorseOutput(textToMorse(inputText))} variant="primary" className="me-2">
-                  Convert (1)
-                </Button>
-                <Button onClick={() => playMorseAudio(morseOutput, playbackSpeed)} variant="success" className="me-2">
+                <Button
+                  onClick={() => {
+                    if (!inputText.trim()) {
+                      setError("Text input is empty. Please enter text before playing Morse.");
+                      return;
+                    }
+                    setError("");
+                    playMorseAudio(morseOutput, playbackSpeed);
+                  }}
+                  variant="success"
+                  className="me-2"
+                >
                   Play Morse (2)
                 </Button>
                 <Button onClick={handleReadAloud} variant="warning" className="me-2">

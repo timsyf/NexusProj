@@ -23,6 +23,7 @@ function Debate() {
   const audioRef = useRef(null);
   const chatContainerRef = useRef(null);
   const [isListening, setIsListening] = useState(false);
+  const [error, setError] = useState("");
 
   const apiKey = process.env.REACT_APP_API_KEY;
 
@@ -98,7 +99,11 @@ function Debate() {
 
   const handleSend = async () => {
     stopTTS();
-    if (!userInput.trim()) return;
+    if (!userInput.trim()) {
+      setError("Please enter your opinion before sending.");
+      return;
+    }
+    setError("");
     const updatedChatLog = [...chatLog, { role: "user", content: userInput }];
     setChatLog(updatedChatLog);
     setUserInput("");
@@ -178,6 +183,11 @@ function Debate() {
             </Card.Body>
             <Card.Footer>
               <Form>
+                {error && (
+                  <Alert variant="danger" className="mt-3 text-center">
+                    <strong>Error:</strong> {error}
+                  </Alert>
+                )}
                 <Form.Group className="d-flex align-items-center gap-2">
                   <Form.Control
                     type="text"

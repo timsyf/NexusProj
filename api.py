@@ -1,4 +1,6 @@
-# Hazard Detector
+
+
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -17,3 +19,8 @@ def analyzed():
 
 if __name__ == '__main__':
     app.run(port=3001, debug=True)
+    
+    
+    
+    
+    

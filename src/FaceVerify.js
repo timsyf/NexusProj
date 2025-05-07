@@ -31,6 +31,8 @@ function FaceEnrollVerify() {
   const [isLoading, setIsLoading] = useState(false);
   const [useWebcam, setUseWebcam] = useState(false);
   const webcamRef = useRef(null);
+  const [error, setError] = useState("");
+
 
   const fetchEnrolledFolders = async () => {
     try {
@@ -68,11 +70,22 @@ function FaceEnrollVerify() {
   };
 
   const handleVerifyFace = async () => {
+    setError("");
     setIsLoading(true);
-
     if (activeTab === "enroll" && selectedFolder.length > 0) {
+      const validImageTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
+      const invalidFiles = selectedFolder.filter(file => !validImageTypes.includes(file.type));
+      if (invalidFiles.length > 0) {
+        setError("Some files have unsupported formats. Only folders with JPEG, PNG, or WEBP are allowed.");
+        setIsLoading(false);
+        return;
+      }
+
+      setError(""); // clear old errors
       const base64Images = await Promise.all(
-        selectedFolder.map(file => toBase64(file).then(data => ({ name: file.webkitRelativePath || file.name, base64: data })))
+        selectedFolder.map(file =>
+          toBase64(file).then(data => ({ name: file.webkitRelativePath || file.name, base64: data }))
+        )
       );
       await sendFolderForEnrollment(base64Images);
       setIsLoading(false);
@@ -89,13 +102,20 @@ function FaceEnrollVerify() {
       setPreviewImage(screenshot);
       await sendFormData(screenshot);
     } else if (selectedFile) {
+      const validImageTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
+      if (!validImageTypes.includes(selectedFile.type)) {
+        setError("Unsupported file format. Please upload a valid image file (JPEG, PNG, WEBP).");
+        setIsLoading(false);
+        return;
+      }
+
       setPreviewImage(URL.createObjectURL(selectedFile));
       const base64 = await toBase64(selectedFile);
       await sendFormData(base64);
-    } else {
+    }
+    else {
       alert("Please select an image file.");
     }
-
     setIsLoading(false);
   };
 
@@ -129,6 +149,7 @@ function FaceEnrollVerify() {
         });
       } catch (apiErr) {
         console.warn("External API call failed:", apiErr);
+        setError("External API call failed");
       }
     }
 
@@ -169,6 +190,11 @@ function FaceEnrollVerify() {
         <Col>
           <Card>
             <Card.Header as="h3" className="text-center">Face Recognition</Card.Header>
+            {error && (
+              <Alert variant="danger" className="text-center">
+                <strong>Error:</strong> {error}
+              </Alert>
+            )}
             <Card.Body>
               <Tabs activeKey={activeTab} onSelect={(k) => { setActiveTab(k); if (k === "manage") fetchEnrolledFolders(); } } className="mb-3">
                 <Tab eventKey="verify" title="Verify">

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Container, Row, Col, Card, Form, Button } from "react-bootstrap";
+import { Container, Row, Col, Card, Form, Button, Alert } from "react-bootstrap";
 const msRest = require("@azure/ms-rest-js");
 const PredictionApi = require("@azure/cognitiveservices-customvision-prediction");
 
@@ -28,6 +28,7 @@ function OD() {
   }, [runOnce]);
   const [apiPort, setApiPort] = useState("3001");
   const [apiRoute, setApiRoute] = useState("object_detection");
+  const [error, setError] = useState("");
 
   const predictionAbortController = useRef(null);
 
@@ -172,11 +173,13 @@ function OD() {
               });
             } catch (err) {
               console.error("Error sending API call:", err);
+              setError("Error sending API call.");
             }
           }
         } catch (error) {
           if (error.name !== "AbortError") {
             console.error("Error during prediction:", error);
+            setError("Error during prediction.");
           }
         }
       }
@@ -235,6 +238,12 @@ function OD() {
   return (
     <Container className="py-4 d-flex justify-content-center align-items-center">
       <Row className="justify-content-center">
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+          {error && (
+            <Alert variant="danger" className="text-center">
+              <strong>Error:</strong> {error}
+            </Alert>
+          )}
         <Col className="mb-3">
           <Card>
             <Card.Header as="h3" className="text-center">

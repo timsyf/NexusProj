@@ -1,6 +1,6 @@
 // SpeechRecorder with Whisper API + OpenAI TTS + Grammar Correction & Translation
 import React, { useState, useRef } from "react";
-import { Button, Container, Row, Col, Form, Card, Spinner } from "react-bootstrap";
+import { Button, Container, Row, Col, Form, Card, Spinner, Alert } from "react-bootstrap";
 
 function SpeechRecorder() {
   const [transcript, setTranscript] = useState("");
@@ -12,6 +12,8 @@ function SpeechRecorder() {
   const [isReadingAloud, setIsReadingAloud] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState("es");
   const [loadingButton, setLoadingButton] = useState("");
+  const [error, setError] = useState("");
+
   const audioRef = useRef(null);
 
   const languageOptions = [
@@ -74,6 +76,11 @@ function SpeechRecorder() {
   };
 
   const exportAsPDF = (text) => {
+    if (!transcript.trim()) {
+      setError("Transcript is empty. Please record something first.");
+      return;
+    }
+    setError("");
     setLoadingButton("export");
     const printWindow = window.open('', '_blank');
     const escapedText = text
@@ -114,6 +121,11 @@ function SpeechRecorder() {
   };
 
   const summarizeText = async (text) => {
+    if (!transcript.trim()) {
+      setError("Transcript is empty. Please record something first.");
+      return;
+    }
+    setError("");
     setLoadingButton("summary");
     const apiKey = process.env.REACT_APP_API_KEY;
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -137,6 +149,11 @@ function SpeechRecorder() {
   };
 
   const correctGrammar = async () => {
+    if (!transcript.trim()) {
+      setError("Transcript is empty. Please record something first.");
+      return;
+    }
+    setError("");
     setLoadingButton("grammar");
     const apiKey = process.env.REACT_APP_API_KEY;
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -159,6 +176,11 @@ function SpeechRecorder() {
   };
 
   const translateText = async () => {
+    if (!transcript.trim()) {
+      setError("Transcript is empty. Please record something first.");
+      return;
+    }
+    setError("");
     setLoadingButton("translate");
     const apiKey = process.env.REACT_APP_API_KEY;
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -181,7 +203,11 @@ function SpeechRecorder() {
   };
 
   const handleReadAloud = async () => {
-    if (!transcript) return;
+    if (!transcript.trim()) {
+      setError("Transcript is empty. Please record something first.");
+      return;
+    }
+    setError("");
     if (isReadingAloud && audioRef.current) {
       audioRef.current.pause();
       setIsReadingAloud(false);
@@ -219,6 +245,11 @@ function SpeechRecorder() {
         </Card.Header>
         <Card.Body>
           <Row className="mb-3 justify-content-center">
+            {error && (
+              <Alert variant="danger">
+                <strong>Error:</strong> {error}
+              </Alert>
+            )}
             <Col xs="auto">
               {isRecording ? (
                 <Button onClick={handleStopRecording} variant="danger">
@@ -291,6 +322,10 @@ function SpeechRecorder() {
               <Button
                 onClick={async () => {
                   const summary = await summarizeText(transcript);
+                      if (!transcript.trim()) {
+                        return;
+                      }
+                      setError("");
                   const apiKey = process.env.REACT_APP_API_KEY;
                   const translationResponse = await fetch("https://api.openai.com/v1/chat/completions", {
                     method: "POST",

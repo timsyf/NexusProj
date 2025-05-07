@@ -17,10 +17,11 @@ function AI() {
   const [imageResponses, setImageResponses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const isInputEmpty = !userInput.trim();
 
   const handleSubmit = async () => {
     if (!userInput.trim()) {
-      setError("Please enter a valid prompt.");
+      setError("Prompt cannot be empty.");
       return;
     }
 
@@ -156,9 +157,16 @@ function AI() {
                     as="textarea"
                     placeholder="Enter your prompt here"
                     value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
+                    onChange={(e) => {
+                      setUserInput(e.target.value);
+                      if (e.target.value.trim()) setError("");
+                    }}
                     rows={5}
+                    isInvalid={isInputEmpty && error !== ""}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    Prompt cannot be empty.
+                  </Form.Control.Feedback>
                 </Form.Group>
 
                 <Button

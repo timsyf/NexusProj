@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useContext } from "react";
-import { Container, Row, Col, Button, Form, Card, Collapse } from "react-bootstrap";
+import { Container, Row, Col, Button, Form, Card, Collapse, Alert } from "react-bootstrap";
 import { AuthContext } from "./App";
 import "bootstrap/dist/css/bootstrap.min.css";
 
@@ -12,6 +12,7 @@ function Home() {
   const [apiRoute, setApiRoute] = useState("analyzed");
   const [predefinedPrompts, setPredefinedPrompts] = useState([]);
   const [showPromptManager, setShowPromptManager] = useState(false);
+  const [error, setError] = useState("");
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -77,10 +78,16 @@ function Home() {
       console.log("Triggered follow-up API:", result);
     } catch (err) {
       console.error("Follow-up API call failed:", err);
+      setError("Follow-up API call failed.");
     }
   };
 
   const captureImageAndAnalyze = async () => {
+    if (!prompt.trim()) {
+      setError("Prompt cannot be empty.");
+      return;
+    }
+
     const canvas = canvasRef.current;
     const video = videoRef.current;
 
@@ -94,7 +101,7 @@ function Home() {
       const imageData = base64Image.split(",")[1];
 
       const predictionKey = process.env.REACT_APP_API_KEY;
-      const strictPrompt = `Respond with only a single word: Yes or No. ${prompt || "Is there something in this image?"}`;
+      const strictPrompt = `Respond with only a single word: Yes or No. ${prompt}`;
 
       try {
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -120,22 +127,28 @@ function Home() {
           }),
         });
 
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error?.message || "API request failed.");
+        }
+
         const data = await response.json();
         let resultText = data.choices[0]?.message?.content || "No response";
-
         let cleaned = resultText.trim().toLowerCase();
         if (cleaned.includes("yes")) cleaned = "Yes";
         else if (cleaned.includes("no")) cleaned = "No";
         else cleaned = "Unclear";
 
         setResponseText(cleaned);
+        setError(""); // clear previous error
 
         if (apiCallEnabled) {
           await handleAnalysisTrigger(cleaned, base64Image);
         }
       } catch (err) {
         console.error("Error analyzing image:", err);
-        setResponseText("An error occurred while analyzing the image.");
+        setResponseText("");
+        setError(err.message || "An error occurred while analyzing the image.");
       }
     }
   };
@@ -161,6 +174,11 @@ function Home() {
                 style={{ border: "1px solid #dee2e6" }}
               />
               <canvas ref={canvasRef} style={{ display: "none" }} />
+              {error && (
+                <Alert variant="danger" className="text-center">
+                  <strong>Error:</strong> {error}
+                </Alert>
+              )}
               <Form.Group className="mb-3">
                 <Form.Label>Custom Prompt</Form.Label>
                 <Form.Control

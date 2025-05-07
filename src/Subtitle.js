@@ -8,11 +8,19 @@ function Subtitle() {
   const [subtitles, setSubtitles] = useState([]);
   const [currentSubtitle, setCurrentSubtitle] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleVideoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    const validVideoTypes = ["video/mp4", "video/webm", "video/ogg"];
+    if (!validVideoTypes.includes(file.type)) {
+      setError("Unsupported file format. Please upload an MP4, WebM, or OGG video.");
+      return;
+    }
+
+    setError(""); // clear any previous error
     const url = URL.createObjectURL(file);
     setVideoURL(url);
     setSubtitles([]);
@@ -29,6 +37,7 @@ function Subtitle() {
       setSubtitles(res.data.subtitles);
     } catch (err) {
       console.error("Upload or transcription failed:", err);
+      setError("Failed to process the video. Please try again with a valid file.");
     }
 
     setLoading(false);
@@ -54,6 +63,11 @@ function Subtitle() {
       <Row>
         <Col md={8} className="mx-auto">
           <Card>
+            {error && (
+              <div className="alert alert-danger text-center mt-3">
+                <strong>Error:</strong> {error}
+              </div>
+            )}
             <Card.Header as="h3" className="text-center">
               Subtitles Generator
             </Card.Header>
