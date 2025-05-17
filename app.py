@@ -18,7 +18,7 @@ from PIL import Image
 import datetime
 from bson import ObjectId
 from dotenv import load_dotenv
-load_dotenv(dotenv_path=os.path.join("src", ".env"))
+load_dotenv(dotenv_path=".env")
 from scipy.spatial.distance import cosine
 
 app = Flask(__name__)
