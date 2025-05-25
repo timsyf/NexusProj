@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext } from "react";
+import React, { useState, useRef, useContext, useEffect } from "react";
 import Webcam from "react-webcam";
 import {
   Container,
@@ -15,7 +15,7 @@ import {
   Tab
 } from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { AuthContext } from "./App";
+import { AuthContext } from "./AuthContext";
 
 function FaceEnrollVerify() {
   const { auth } = useContext(AuthContext);
@@ -33,6 +33,14 @@ function FaceEnrollVerify() {
   const webcamRef = useRef(null);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    return () => {
+      if (webcamRef.current && webcamRef.current.stream) {
+        webcamRef.current.stream.getTracks().forEach((track) => track.stop());
+        webcamRef.current.stream = null;
+      }
+    };
+  }, []);
 
   const fetchEnrolledFolders = async () => {
     try {
@@ -328,6 +336,7 @@ function FaceEnrollVerify() {
       </Row>
     </Container>
   );
+  
 }
 
 export default FaceEnrollVerify;

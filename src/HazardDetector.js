@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useContext } from "react";
 import { Container, Row, Col, Button, Form, Card, Collapse, Alert } from "react-bootstrap";
-import { AuthContext } from "./App";
+import { AuthContext } from "./AuthContext";
+import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 function Home() {
@@ -13,6 +14,7 @@ function Home() {
   const [predefinedPrompts, setPredefinedPrompts] = useState([]);
   const [showPromptManager, setShowPromptManager] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -79,6 +81,7 @@ function Home() {
     } catch (err) {
       console.error("Follow-up API call failed:", err);
       setError("Follow-up API call failed.");
+      navigate("/service-unavailable");
     }
   };
 
@@ -149,6 +152,7 @@ function Home() {
         console.error("Error analyzing image:", err);
         setResponseText("");
         setError(err.message || "An error occurred while analyzing the image.");
+        navigate("/service-unavailable");
       }
     }
   };
@@ -302,7 +306,8 @@ function Home() {
                         const data = await res.json();
                         alert(data.message || "Prompts saved.");
                       } catch (error) {
-                        alert("Failed to save prompts.");
+                        console.error("Prompt saving failed:", error);
+                        navigate("/service-unavailable");
                       }
                     }}
                   >

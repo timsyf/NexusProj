@@ -9,6 +9,7 @@ import {
   Spinner,
   Alert,
 } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 
 function AI() {
   const [userInput, setUserInput] = useState("");
@@ -18,6 +19,7 @@ function AI() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const isInputEmpty = !userInput.trim();
+  const navigate = useNavigate();
 
   const handleSubmit = async () => {
     if (!userInput.trim()) {
@@ -72,6 +74,7 @@ function AI() {
     } catch (err) {
       console.error("Error:", err);
       setError(err.message || "An unexpected error occurred.");
+      navigate("/service-unavailable");
     } finally {
       setLoading(false);
     }
@@ -131,6 +134,7 @@ function AI() {
     } catch (err) {
       console.error(err);
       setError(err.message || "Unexpected error during prompt enhancement.");
+      navigate("/service-unavailable");
     } finally {
       setLoading(false);
     }

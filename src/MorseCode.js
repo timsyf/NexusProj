@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Container, Row, Col, Button, Card, Form } from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
+import { useNavigate } from "react-router-dom";
 
 const morseCodeMap = {
   A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.",
@@ -59,6 +60,7 @@ function MorseCode() {
   const [playbackSpeed, setPlaybackSpeed] = useState(150);
   const audioRef = useRef(null);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
@@ -92,37 +94,42 @@ function MorseCode() {
       return;
     }
     setError("");
-    if (!inputText) return;
+
     if (isReadingAloud && audioRef.current) {
       audioRef.current.pause();
       setIsReadingAloud(false);
       return;
     }
 
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "tts-1",
-        voice: selectedVoice,
-        input: inputText,
-        response_format: "mp3",
-      }),
-    });
+    try {
+      const response = await fetch("https://api.openai.com/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "tts-1",
+          voice: selectedVoice,
+          input: inputText,
+          response_format: "mp3",
+        }),
+      });
 
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    setAudioURL(url);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setAudioURL(url);
 
-    const audio = new Audio(url);
-    audioRef.current = audio;
+      const audio = new Audio(url);
+      audioRef.current = audio;
 
-    setIsReadingAloud(true);
-    audio.onended = () => setIsReadingAloud(false);
-    audio.play();
+      setIsReadingAloud(true);
+      audio.onended = () => setIsReadingAloud(false);
+      audio.play();
+    } catch (err) {
+      console.error("TTS API error:", err);
+      navigate("/service-unavailable");
+    }
   };
 
   const handleDownloadMorseTxt = () => {

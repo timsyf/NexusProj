@@ -311,15 +311,15 @@ function OD() {
                 }}
               />
               <div className="mt-4">
-  <Form.Check
-    type="switch"
-    id="toggleKeySource"
-    label="Use Environment Variables"
-    checked={useEnvKeys}
-    onChange={() => setUseEnvKeys(!useEnvKeys)}
-    disabled={isRunning}
-  />
-</div>
+                <Form.Check
+                  type="switch"
+                  id="toggleKeySource"
+                  label="Use Environment Variables"
+                  checked={useEnvKeys}
+                  onChange={() => setUseEnvKeys(!useEnvKeys)}
+                  disabled={isRunning}
+                />
+              </div>
               {!useEnvKeys && (
                 <div className="mt-4">
                   <Form.Group>
@@ -394,21 +394,21 @@ function OD() {
               </div>
               <div className="mt-4">
                 <Form.Check
-  type="switch"
-  id="enableApiCall"
-  label="Enable API Call"
-  checked={enableApiCall}
-  onChange={() => setEnableApiCall(!enableApiCall)}
-  disabled={isRunning}
-/>
-<Form.Check
-  type="switch"
-  id="runOnce"
-  label="Run Once"
-  checked={runOnce}
-  onChange={() => setRunOnce(!runOnce)}
-  disabled={isRunning}
-/>
+                  type="switch"
+                  id="enableApiCall"
+                  label="Enable API Call"
+                  checked={enableApiCall}
+                  onChange={() => setEnableApiCall(!enableApiCall)}
+                  disabled={isRunning}
+                />
+                <Form.Check
+                  type="switch"
+                  id="runOnce"
+                  label="Run Once"
+                  checked={runOnce}
+                  onChange={() => setRunOnce(!runOnce)}
+                  disabled={isRunning}
+                />
                 {enableApiCall && (<>
                   <Form.Group className="mt-2">
                     <Form.Label>API Port</Form.Label>
@@ -433,16 +433,16 @@ function OD() {
               <div className="mt-4 text-center">
               
                 <Button
-  variant={isRunning ? "danger" : "success"}
-  onClick={toggleRunning}
->
-  {isRunning ? "Stop" : runOnce ? "Run" : "Start"}
-                </Button>
-              </div>
-              <br></br>
-              {snapshotImage && (
-  <img src={snapshotImage} alt="Snapshot with Detections" className="img-fluid mb-3" />
-)}
+                  variant={isRunning ? "danger" : "success"}
+                  onClick={toggleRunning}
+                >
+                  {isRunning ? "Stop" : runOnce ? "Run" : "Start"}
+                                </Button>
+                              </div>
+                              <br></br>
+                              {snapshotImage && (
+                  <img src={snapshotImage} alt="Snapshot with Detections" className="img-fluid mb-3" />
+                )}
             </Card.Body>
           </Card>
         </Col>

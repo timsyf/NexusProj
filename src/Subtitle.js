@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Container, Row, Col, Button, Card, Form } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 function Subtitle() {
@@ -9,6 +10,7 @@ function Subtitle() {
   const [currentSubtitle, setCurrentSubtitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const handleVideoUpload = async (e) => {
     const file = e.target.files[0];
@@ -38,6 +40,7 @@ function Subtitle() {
     } catch (err) {
       console.error("Upload or transcription failed:", err);
       setError("Failed to process the video. Please try again with a valid file.");
+      navigate("/service-unavailable");
     }
 
     setLoading(false);

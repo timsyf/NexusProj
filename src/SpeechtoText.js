@@ -1,5 +1,6 @@
 // SpeechRecorder with Whisper API + OpenAI TTS + Grammar Correction & Translation
 import React, { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button, Container, Row, Col, Form, Card, Spinner, Alert } from "react-bootstrap";
 
 function SpeechRecorder() {
@@ -13,7 +14,7 @@ function SpeechRecorder() {
   const [targetLanguage, setTargetLanguage] = useState("es");
   const [loadingButton, setLoadingButton] = useState("");
   const [error, setError] = useState("");
-
+  const navigate = useNavigate();
   const audioRef = useRef(null);
 
   const languageOptions = [
@@ -59,6 +60,7 @@ function SpeechRecorder() {
         setTranscript(data.text || "");
       } catch (err) {
         console.error("Whisper API error:", err);
+        navigate("/service-unavailable");
       }
     };
 
@@ -128,51 +130,62 @@ function SpeechRecorder() {
     setError("");
     setLoadingButton("summary");
     const apiKey = process.env.REACT_APP_API_KEY;
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4",
-        messages: [
-          { role: "system", content: "Summarize this." },
-          { role: "user", content: text },
-        ],
-      }),
-    });
-    const data = await response.json();
-    setSummarizedText(data.choices[0].message.content);
-    setLoadingButton("");
-    return data.choices[0].message.content;
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: "Summarize this." },
+            { role: "user", content: text },
+          ],
+        }),
+      });
+      const data = await response.json();
+      setSummarizedText(data.choices[0].message.content);
+      setLoadingButton("");
+      return data.choices[0].message.content;
+    } catch (err) {
+      console.error("Summarize API error:", err);
+      navigate("/service-unavailable");
+    }
   };
 
   const correctGrammar = async () => {
     if (!transcript.trim()) {
       setError("Transcript is empty. Please record something first.");
-      return;
+      return; 
     }
     setError("");
     setLoadingButton("grammar");
     const apiKey = process.env.REACT_APP_API_KEY;
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4",
-        messages: [
-          { role: "system", content: "Correct the grammar, punctuation, and anything else you can find." },
-          { role: "user", content: transcript },
-        ],
-      }),
-    });
-    const data = await response.json();
-    setTranscript(data.choices[0].message.content);
-    setLoadingButton("");
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: "Correct the grammar, punctuation, and anything else you can find." },
+            { role: "user", content: transcript },
+          ],
+        }),
+      });
+      const data = await response.json();
+      setTranscript(data.choices[0].message.content);
+    } catch (err) {
+      console.error("Grammar correction API error:", err);
+      navigate("/service-unavailable");
+    } finally {
+      setLoadingButton("");
+    }
   };
 
   const translateText = async () => {
@@ -183,23 +196,29 @@ function SpeechRecorder() {
     setError("");
     setLoadingButton("translate");
     const apiKey = process.env.REACT_APP_API_KEY;
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4",
-        messages: [
-          { role: "system", content: `Translate this text to ${targetLanguage}` },
-          { role: "user", content: transcript },
-        ],
-      }),
-    });
-    const data = await response.json();
-    setTranscript(data.choices[0].message.content);
-    setLoadingButton("");
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: `Translate this text to ${targetLanguage}` },
+            { role: "user", content: transcript },
+          ],
+        }),
+      });
+      const data = await response.json();
+      setTranscript(data.choices[0].message.content);
+    } catch (err) {
+      console.error("Translation API error:", err);
+      navigate("/service-unavailable");
+    } finally {
+      setLoadingButton("");
+    }
   };
 
   const handleReadAloud = async () => {
@@ -208,33 +227,39 @@ function SpeechRecorder() {
       return;
     }
     setError("");
+
     if (isReadingAloud && audioRef.current) {
       audioRef.current.pause();
       setIsReadingAloud(false);
       return;
     }
 
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "tts-1",
-        voice: selectedVoice,
-        input: transcript,
-        response_format: "mp3",
-      }),
-    });
+    try {
+      const response = await fetch("https://api.openai.com/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.REACT_APP_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "tts-1",
+          voice: selectedVoice,
+          input: transcript,
+          response_format: "mp3",
+        }),
+      });
 
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    setIsReadingAloud(true);
-    audio.onended = () => setIsReadingAloud(false);
-    audio.play();
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      setIsReadingAloud(true);
+      audio.onended = () => setIsReadingAloud(false);
+      audio.play();
+    } catch (err) {
+      console.error("TTS API error:", err);
+      navigate("/service-unavailable");
+    }
   };
 
   return (
@@ -321,29 +346,36 @@ function SpeechRecorder() {
             <Col xs="auto">
               <Button
                 onClick={async () => {
-                  const summary = await summarizeText(transcript);
-                      if (!transcript.trim()) {
-                        return;
-                      }
-                      setError("");
-                  const apiKey = process.env.REACT_APP_API_KEY;
-                  const translationResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${apiKey}`,
-                    },
-                    body: JSON.stringify({
-                      model: "gpt-4",
-                      messages: [
-                        { role: "system", content: `Translate this text to ${targetLanguage}` },
-                        { role: "user", content: summary },
-                      ],
-                    }),
-                  });
-                  const translatedData = await translationResponse.json();
-                  const translatedSummary = translatedData.choices[0].message.content;
-                  exportAsPDF(translatedSummary);
+                  try {
+                    const summary = await summarizeText(transcript);
+                    if (!transcript.trim()) {
+                      return;
+                    }
+                    setError("");
+
+                    const apiKey = process.env.REACT_APP_API_KEY;
+                    const translationResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${apiKey}`,
+                      },
+                      body: JSON.stringify({
+                        model: "gpt-4",
+                        messages: [
+                          { role: "system", content: `Translate this text to ${targetLanguage}` },
+                          { role: "user", content: summary },
+                        ],
+                      }),
+                    });
+
+                    const translatedData = await translationResponse.json();
+                    const translatedSummary = translatedData.choices[0].message.content;
+                    exportAsPDF(translatedSummary);
+                  } catch (err) {
+                    console.error("Summary Export API error:", err);
+                    navigate("/service-unavailable");
+                  }
                 }}
                 variant="secondary"
                 disabled={loadingButton === "summary"}

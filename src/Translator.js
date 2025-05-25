@@ -1,5 +1,5 @@
-// TranslatorWithOpenAI.jsx
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button, Container, Row, Col, Form, Card, Spinner } from "react-bootstrap";
 
 function TranslatorWithOpenAI() {
@@ -15,6 +15,7 @@ function TranslatorWithOpenAI() {
   const [autoReadAloud, setAutoReadAloud] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState("nova");
   const [showUpload, setShowUpload] = useState(false);
+  const navigate = useNavigate();
 
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
@@ -144,6 +145,7 @@ function TranslatorWithOpenAI() {
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to transcribe or translate.");
+      navigate("/service-unavailable");
     } finally {
       setLoading(false);
       transcribingRef.current = false;
@@ -188,6 +190,7 @@ function TranslatorWithOpenAI() {
     } catch (error) {
       console.error("Error during TTS playback:", error);
       alert("Text-to-speech failed. Please try again.");
+      navigate("/service-unavailable");
     }
   };
 

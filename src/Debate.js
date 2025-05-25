@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Container, Row, Col, Button, Card, Form, Spinner, Alert } from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
+import { useNavigate } from "react-router-dom";
 
 const VOICES = ["nova", "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "sage", "shimmer"];
 
@@ -24,6 +25,7 @@ function Debate() {
   const chatContainerRef = useRef(null);
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const apiKey = process.env.REACT_APP_API_KEY;
 
@@ -134,6 +136,7 @@ function Debate() {
       if (useTTS && botReply) speakText(botReply);
     } catch (err) {
       setChatLog([...updatedChatLog, { role: "assistant", content: "Error generating a response." }]);
+      navigate("/service-unavailable");
     } finally {
       setLoading(false);
       setTypingIndicator(false);
@@ -161,6 +164,7 @@ function Debate() {
       audio.play();
     } catch (err) {
       console.error("TTS Error:", err);
+      navigate("/service-unavailable");
     }
   };
 
